@@ -5,7 +5,7 @@ import threading
 import time
 import socket
 from datetime import datetime
-from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify, send_file
 from werkzeug.utils import secure_filename
 import zipfile
 
@@ -526,6 +526,116 @@ def send_command(name):
             return jsonify({'success': False, 'error': str(e)})
     
     return jsonify({'success': False, 'error': 'No command provided'})
+
+# File Manager Routes
+@app.route('/file_manager')
+@app.route('/file_manager/<path:path>')
+def file_manager(path='.'):
+    if 'username' not in session:
+        return redirect(url_for('login'))
+    
+    # Security: prevent directory traversal
+    if '..' in path or path.startswith('/'):
+        flash('Invalid path', 'error')
+        return redirect(url_for('file_manager'))
+    
+    # Get absolute path
+    base_dir = os.path.abspath('.')
+    current_path = os.path.abspath(os.path.join(base_dir, path))
+    
+    # Security: ensure path is within base directory
+    if not current_path.startswith(base_dir):
+        flash('Access denied', 'error')
+        return redirect(url_for('file_manager'))
+    
+    # Handle actions
+    action = request.args.get('action')
+    if action == 'download' and os.path.isfile(current_path):
+        return send_file(current_path, as_attachment=True)
+    
+    # Get directory contents
+    try:
+        if os.path.isdir(current_path):
+            files = []
+            for item in os.listdir(current_path):
+                item_path = os.path.join(current_path, item)
+                rel_path = os.path.relpath(item_path, base_dir)
+                
+                if os.path.isdir(item_path):
+                    files.append({
+                        'name': item,
+                        'path': rel_path,
+                        'is_dir': True,
+                        'size': ''
+                    })
+                else:
+                    size = os.path.getsize(item_path)
+                    files.append({
+                        'name': item,
+                        'path': rel_path,
+                        'is_dir': False,
+                        'size': f"{size:,} bytes"
+                    })
+            
+            # Sort: directories first, then files
+            files.sort(key=lambda x: (not x['is_dir'], x['name'].lower()))
+            
+            return render_template('file_manager.html',
+                                 username=session['username'],
+                                 current_path=path,
+                                 files=files)
+        else:
+            flash('Not a directory', 'error')
+            return redirect(url_for('file_manager'))
+            
+    except Exception as e:
+        flash(f'Error accessing directory: {str(e)}', 'error')
+        return redirect(url_for('file_manager'))
+
+@app.route('/api/file_action', methods=['POST'])
+def file_action():
+    if 'username' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    data = request.get_json()
+    action = data.get('action')
+    path = data.get('path')
+    
+    if not path or '..' in path or path.startswith('/'):
+        return jsonify({'error': 'Invalid path'}), 400
+    
+    try:
+        if action == 'delete':
+            if os.path.isdir(path):
+                import shutil
+                shutil.rmtree(path)
+            else:
+                os.remove(path)
+            return jsonify({'success': True})
+        
+        elif action == 'rename':
+            new_name = data.get('new_name')
+            if not new_name:
+                return jsonify({'error': 'New name required'}), 400
+            
+            new_path = os.path.join(os.path.dirname(path), new_name)
+            os.rename(path, new_path)
+            return jsonify({'success': True})
+        
+        elif action == 'create_folder':
+            folder_name = data.get('folder_name')
+            if not folder_name:
+                return jsonify({'error': 'Folder name required'}), 400
+            
+            new_folder = os.path.join(path, folder_name)
+            os.makedirs(new_folder, exist_ok=True)
+            return jsonify({'success': True})
+        
+        else:
+            return jsonify({'error': 'Invalid action'}), 400
+            
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     # Create necessary directories

@@ -28,7 +28,7 @@ apt update -y && apt upgrade -y
 
 # Install required packages
 echo -e "${BLUE}📦 Installing required packages...${NC}"
-apt install -y python3 python3-pip python3-venv git curl wget unzip tar gzip htop nano vim ufw
+apt install -y python3 python3-pip python3-venv git curl wget unzip tar gzip htop nano vim
 
 # Verify Python
 echo -e "${BLUE}🐍 Verifying Python installation...${NC}"
@@ -93,11 +93,8 @@ systemctl daemon-reload
 systemctl enable flare-panel
 systemctl start flare-panel
 
-# Configure firewall
-echo -e "${BLUE}🛡️ Configuring firewall...${NC}"
-ufw allow ssh
-ufw allow 5000
-ufw --force enable
+# Firewall configuration removed - not needed
+echo -e "${BLUE}ℹ️  Firewall configuration skipped...${NC}"
 
 # Wait for service to start
 sleep 3
