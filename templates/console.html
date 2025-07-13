@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Server Manager - Console</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #1e1e1e;
+            color: #ffffff;
+        }
+        .console-container {
+            background-color: #2d2d2d;
+            border-radius: 10px;
+            padding: 20px;
+            height: 70vh;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+        .console-output {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .console-input {
+            background-color: #1e1e1e;
+            border: 1px solid #555;
+            color: #ffffff;
+            font-family: 'Courier New', monospace;
+        }
+        .console-input:focus {
+            background-color: #1e1e1e;
+            border-color: #007bff;
+            color: #ffffff;
+            box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+        }
+        .navbar {
+            background-color: #2d2d2d !important;
+        }
+        .card {
+            background-color: #2d2d2d;
+            border: 1px solid #555;
+        }
+        .btn-dark {
+            background-color: #1e1e1e;
+            border-color: #555;
+        }
+        .btn-dark:hover {
+            background-color: #333;
+            border-color: #666;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark">
+        <div class="container">
+            <a class="navbar-brand" href="{{ url_for('dashboard') }}">
+                <i class="fas fa-server me-2"></i>Server Manager
+            </a>
+            <div class="navbar-nav ms-auto">
+                <span class="navbar-text me-3">
+                    <i class="fas fa-terminal me-1"></i>{{ server_name }}
+                </span>
+                <a class="nav-link" href="{{ url_for('dashboard') }}">
+                    <i class="fas fa-arrow-left me-1"></i>Back
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="fas fa-terminal me-2"></i>Console - {{ server_name }}
+                        </h5>
+                        <div>
+                            <button class="btn btn-sm btn-success" onclick="runServer()" id="runBtn">
+                                <i class="fas fa-play me-1"></i>Run
+                            </button>
+                            <button class="btn btn-sm btn-warning" onclick="stopServer()" id="stopBtn">
+                                <i class="fas fa-stop me-1"></i>Stop
+                            </button>
+                            <button class="btn btn-sm btn-dark" onclick="clearConsole()">
+                                <i class="fas fa-trash me-1"></i>Clear
+                            </button>
+                            <button class="btn btn-sm btn-dark" onclick="refreshLogs()">
+                                <i class="fas fa-sync me-1"></i>Refresh
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="console-container" id="consoleOutput">
+                            <div class="console-output" id="logContent">
+                                <!-- Logs will be loaded here -->
+                            </div>
+                        </div>
+                        <div class="card-footer bg-dark text-light">
+                            <small>
+                                <strong>Available Commands:</strong> python script.py | pip install package | dir | cd folder | echo "text" | python --version
+                            </small>
+                        </div>
+                    </div>
+                    <div class="card-footer">
+                        <form id="commandForm" class="d-flex">
+                            <input type="text" class="form-control console-input me-2" id="commandInput" 
+                                   placeholder="Enter command..." autocomplete="off">
+                            <button type="submit" class="btn btn-dark">
+                                <i class="fas fa-paper-plane"></i>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let commandHistory = [];
+        let historyIndex = -1;
+        let isRunning = false;
+
+        // Load initial logs
+        loadLogs();
+        checkServerStatus();
+
+        // Auto-refresh logs every 1 second
+        setInterval(loadLogs, 1000);
+        // Check server status every 5 seconds
+        setInterval(checkServerStatus, 5000);
+
+        function loadLogs() {
+            fetch('/api/console_logs/{{ server_name }}')
+                .then(response => response.json())
+                .then(data => {
+                    const logContent = document.getElementById('logContent');
+                    const wasAtBottom = isAtBottom();
+                    logContent.textContent = data.logs.join('\n');
+                    if (wasAtBottom) {
+                        scrollToBottom();
+                    }
+                })
+                .catch(error => console.error('Error loading logs:', error));
+        }
+
+        function checkServerStatus() {
+            fetch('/api/server_status/{{ server_name }}')
+                .then(response => response.json())
+                .then(data => {
+                    isRunning = data.status === 'running';
+                    updateButtons();
+                })
+                .catch(error => console.error('Error checking status:', error));
+        }
+
+        function updateButtons() {
+            const runBtn = document.getElementById('runBtn');
+            const stopBtn = document.getElementById('stopBtn');
+            
+            if (isRunning) {
+                runBtn.disabled = true;
+                runBtn.classList.remove('btn-success');
+                runBtn.classList.add('btn-secondary');
+                stopBtn.disabled = false;
+                stopBtn.classList.remove('btn-secondary');
+                stopBtn.classList.add('btn-warning');
+            } else {
+                runBtn.disabled = false;
+                runBtn.classList.remove('btn-secondary');
+                runBtn.classList.add('btn-success');
+                stopBtn.disabled = true;
+                stopBtn.classList.remove('btn-warning');
+                stopBtn.classList.add('btn-secondary');
+            }
+        }
+
+        function runServer() {
+            if (!isRunning) {
+                window.location.href = '/start_server/{{ server_name }}';
+            }
+        }
+
+        function stopServer() {
+            if (isRunning) {
+                window.location.href = '/stop_server/{{ server_name }}';
+            }
+        }
+
+        function refreshLogs() {
+            loadLogs();
+        }
+
+        function clearConsole() {
+            document.getElementById('logContent').textContent = '';
+        }
+
+        function scrollToBottom() {
+            const consoleContainer = document.getElementById('consoleOutput');
+            consoleContainer.scrollTop = consoleContainer.scrollHeight;
+        }
+
+        function isAtBottom() {
+            const consoleContainer = document.getElementById('consoleOutput');
+            return consoleContainer.scrollTop + consoleContainer.clientHeight >= consoleContainer.scrollHeight - 10;
+        }
+
+        // Handle command submission
+        document.getElementById('commandForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const command = document.getElementById('commandInput').value.trim();
+            if (command) {
+                sendCommand(command);
+                document.getElementById('commandInput').value = '';
+            }
+        });
+
+        function sendCommand(command) {
+            // Add command to history
+            commandHistory.push(command);
+            historyIndex = commandHistory.length;
+
+            fetch('/api/send_command/{{ server_name }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ command: command })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Command logged successfully
+                    loadLogs();
+                }
+            })
+            .catch(error => console.error('Error sending command:', error));
+        }
+
+        // Handle arrow keys for command history
+        document.getElementById('commandInput').addEventListener('keydown', function(e) {
+            if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                if (historyIndex > 0) {
+                    historyIndex--;
+                    this.value = commandHistory[historyIndex] || '';
+                }
+            } else if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                if (historyIndex < commandHistory.length - 1) {
+                    historyIndex++;
+                    this.value = commandHistory[historyIndex] || '';
+                } else {
+                    historyIndex = commandHistory.length;
+                    this.value = '';
+                }
+            }
+        });
+    </script>
+</body>
+</html> 
