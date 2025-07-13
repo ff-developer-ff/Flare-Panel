@@ -10,7 +10,10 @@ from werkzeug.utils import secure_filename
 import zipfile
 
 app = Flask(__name__)
-app.secret_key = 'your-secret-key-here'
+
+# Secure secret key - use environment variable if available, otherwise use default
+import os
+app.secret_key = os.environ.get('SECRET_KEY', 'ff_developer_2025_secure_key_8f7d6e5c4b3a2918')
 
 # Server manager class
 class ServerManager:
@@ -902,6 +905,54 @@ def send_command(name):
     
     return jsonify({'success': False, 'error': 'No command provided'})
 
+@app.route('/api/read_file')
+def api_read_file():
+    if 'username' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    path = request.args.get('path')
+    if not path or not os.path.exists(path):
+        return jsonify({'success': False, 'error': 'File not found'})
+    
+    try:
+        # Check if file is readable and not too large (max 1MB)
+        if os.path.getsize(path) > 1024 * 1024:
+            return jsonify({'success': False, 'error': 'File too large (max 1MB)'})
+        
+        # Read file content
+        with open(path, 'r', encoding='utf-8') as f:
+            content = f.read()
+        
+        return jsonify({'success': True, 'content': content})
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/save_file', methods=['POST'])
+def api_save_file():
+    if 'username' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    data = request.get_json()
+    path = data.get('path')
+    content = data.get('content')
+    
+    if not path or content is None:
+        return jsonify({'success': False, 'error': 'Missing path or content'})
+    
+    try:
+        # Ensure the directory exists
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        
+        # Write file content
+        with open(path, 'w', encoding='utf-8') as f:
+            f.write(content)
+        
+        return jsonify({'success': True})
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
 if __name__ == '__main__':
     # Create necessary directories
     os.makedirs('logs', exist_ok=True)
@@ -911,8 +962,8 @@ if __name__ == '__main__':
     print("🚀 Server Manager starting on Ubuntu VPS...")
     print("Default login: hxc / 123")
     print(f"Local IP: {get_local_ip()}")
-    print("Access the web interface at: http://localhost:5000")
-    print("For external access: http://YOUR_VPS_IP:5000")
+    print("Access the web interface at: http://localhost:5010")
+    print("For external access: http://YOUR_VPS_IP:5010")
     
     # Run on all interfaces for VPS access
-    app.run(host='0.0.0.0', port=5000, debug=False, threaded=True)
+    app.run(host='0.0.0.0', port=5010, debug=False, threaded=True)

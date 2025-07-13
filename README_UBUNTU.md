@@ -35,6 +35,11 @@ chmod +x install_ubuntu.sh
 ./install_ubuntu.sh
 ```
 
+### Method 3: One-Line Installation
+```bash
+curl -sSL https://raw.githubusercontent.com/ff-developer-ff/PYTHON-PANEL/main/install_ubuntu.sh | bash
+```
+
 ### Method 2: Manual Installation
 ```bash
 # Update system
@@ -61,15 +66,15 @@ python3 app.py
 - **Password:** 123
 
 ### Port Configuration
-- **Main Interface:** Port 5000
+- **Main Interface:** Port 5010
 - **Server Ports:** Configurable (5000-9999)
 
-### Firewall Setup
+### Firewall Setup (Optional)
 ```bash
-# Allow port 5000
-sudo ufw allow 5000
+# Allow port 5010 (if needed)
+sudo ufw allow 5010
 
-# Enable firewall
+# Enable firewall (if needed)
 sudo ufw enable
 ```
 
@@ -91,7 +96,7 @@ PYTHON-PANEL/
 ## 🎮 Usage
 
 ### 1. Access Web Interface
-- Open browser: `http://YOUR_VPS_IP:5000`
+- Open browser: `http://YOUR_VPS_IP:5010`
 - Login with: hxc / 123
 
 ### 2. Create a Server

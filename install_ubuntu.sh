@@ -67,6 +67,11 @@ pip3 list | grep -E "(flask|werkzeug)"
 # Make app.py executable
 chmod +x app.py
 
+# Generate secure secret key
+echo "🔐 Generating secure secret key..."
+SECRET_KEY=$(python3 -c "import secrets; print(secrets.token_hex(32))")
+echo "Secret key generated: ${SECRET_KEY:0:20}..."
+
 # Create systemd service for auto-start
 echo "⚙️ Creating systemd service..."
 sudo tee /etc/systemd/system/server-manager.service > /dev/null <<EOF
@@ -79,6 +84,7 @@ Type=simple
 User=$USER
 WorkingDirectory=$CURRENT_DIR
 Environment=PATH=$CURRENT_DIR/venv/bin
+Environment=SECRET_KEY=$SECRET_KEY
 ExecStart=$CURRENT_DIR/venv/bin/python3 app.py
 Restart=always
 RestartSec=10
@@ -93,8 +99,9 @@ sudo systemctl enable server-manager
 sudo systemctl start server-manager
 
 echo "✅ Installation complete!"
+echo "⚠️ Note: Firewall configuration not included. Configure manually if needed."
 echo "🐍 Python version: $PYTHON_VERSION"
-echo "🌐 Server Manager is running at: http://$(curl -s ifconfig.me):5000"
+echo "🌐 Server Manager is running at: http://$(curl -s ifconfig.me):5010"
 echo "🔑 Login: hxc / 123"
 echo "📁 Repository: $GITHUB_REPO"
 echo ""
