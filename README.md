@@ -669,3 +669,82 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ---
 
 *Last updated: January 2025* 
+
+## 🔥 **One-Line Flare Panel Installation**
+
+### **📋 Curl Command:**
+```bash
+<code_block_to_apply_changes_from>
+```
+
+### **🚀 With Sudo (Recommended):**
+```bash
+curl -sSL https://raw.githubusercontent.com/ff-developer-ff/Flare-Panel/main/flare.sh | sudo bash
+```
+
+## 📋 **What the Script Does:**
+
+### **1. System Setup**
+- ✅ Updates Ubuntu packages
+- ✅ Installs Python 3, git, curl, wget, and other tools
+- ✅ Verifies Python installation
+
+### **2. Flare Panel Installation**
+- ✅ Clones from GitHub: `https://github.com/ff-developer-ff/Flare-Panel.git`
+- ✅ Creates Python virtual environment
+- ✅ Installs all dependencies
+- ✅ Creates logs and servers directories
+
+### **3. Service Setup**
+- ✅ Creates systemd service (`flare-panel.service`)
+- ✅ Enables and starts the service
+- ✅ Configures UFW firewall
+
+### **4. Final Setup**
+- ✅ Shows access information
+- ✅ Displays management commands
+- ✅ Verifies installation success
+
+## ✅ **After Installation:**
+
+### **Access Information:**
+- **URL**: `http://your-vps-ip:5000`
+- **Username**: `hxc`
+- **Password**: `123`
+
+### **Management Commands:**
+```bash
+# Start Flare Panel
+systemctl start flare-panel
+
+# Stop Flare Panel
+systemctl stop flare-panel
+
+# Restart Flare Panel
+systemctl restart flare-panel
+
+# Check status
+systemctl status flare-panel
+
+# View logs
+journalctl -u flare-panel -f
+```
+
+## 🎯 **Key Features:**
+
+- ✅ **One Command**: Complete installation with single curl command
+- ✅ **Automatic Setup**: No manual configuration needed
+- ✅ **Service Management**: Systemd service with auto-restart
+- ✅ **Firewall Setup**: Automatic UFW configuration
+- ✅ **Error Handling**: Comprehensive error checking
+- ✅ **Colored Output**: Professional installation feedback
+- ✅ **IP Detection**: Automatically detects server IP
+
+## 🚨 **Important Notes:**
+
+1. **Run as Root**: The script must be run with sudo or as root
+2. **Internet Required**: Needs internet connection to clone repository
+3. **Ubuntu Only**: Designed for Ubuntu VPS systems
+4. **Change Password**: Remember to change default password after login
+
+The script is now ready for one-line installation! Just run the curl command and Flare Panel will be installed automatically. 🔥 

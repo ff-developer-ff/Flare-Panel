@@ -1038,29 +1038,6 @@ def api_save_file():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
 
-@app.route('/api/read_file')
-def api_read_file():
-    if 'username' not in session:
-        return jsonify({'error': 'Unauthorized'}), 401
-    
-    path = request.args.get('path')
-    if not path or not os.path.exists(path):
-        return jsonify({'success': False, 'error': 'File not found'})
-    
-    try:
-        # Check if file is readable and not too large (max 1MB)
-        if os.path.getsize(path) > 1024 * 1024:
-            return jsonify({'success': False, 'error': 'File too large (max 1MB)'})
-        
-        # Read file content
-        with open(path, 'r', encoding='utf-8') as f:
-            content = f.read()
-        
-        return jsonify({'success': True, 'content': content})
-        
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)})
-
 if __name__ == '__main__':
     # Create necessary directories
     os.makedirs('logs', exist_ok=True)
