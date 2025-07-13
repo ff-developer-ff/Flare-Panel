@@ -97,9 +97,9 @@ class ServerManager:
     
     def add_welcome_message(self, name):
         """Add welcome message to console"""
-        welcome_msg = f"Welcome to {name} console! You can run any command here."
+        welcome_msg = f"Welcome to {name} console on Ubuntu VPS! You can run any command here."
         self.add_console_log(name, welcome_msg)
-        self.add_console_log(name, "Try: python --version | dir | pip install package")
+        self.add_console_log(name, "Try: python3 --version | ls | pip3 list | pip3 install package | sudo apt update")
     
     def start_server(self, name):
         if name not in self.servers:
@@ -136,23 +136,21 @@ class ServerManager:
             env['HOST'] = server['host']
             env['SERVER_NAME'] = name
             
-            # Add Python to PATH for Windows
-            if os.name == 'nt':
+            # Add Python to PATH for Linux/Ubuntu
+            if os.name != 'nt':  # Linux/Unix systems
                 python_paths = [
-                    r"C:\Program Files\Python310",
-                    r"C:\Program Files\Python39", 
-                    r"C:\Program Files\Python38",
-                    r"C:\Users\{}\AppData\Local\Programs\Python\Python310".format(os.getenv('USERNAME', '')),
-                    r"C:\Users\{}\AppData\Local\Programs\Python\Python39".format(os.getenv('USERNAME', '')),
-                    r"C:\Python310",
-                    r"C:\Python39",
-                    r"C:\Python38"
+                    "/usr/bin",
+                    "/usr/local/bin",
+                    "/usr/local/sbin",
+                    "/opt/python3/bin",
+                    "/home/{}/.local/bin".format(os.getenv('USER', '')),
+                    "/snap/bin"
                 ]
                 
                 current_path = env.get('PATH', '')
                 for python_path in python_paths:
                     if os.path.exists(python_path) and python_path not in current_path:
-                        current_path = f"{python_path};{python_path}\\Scripts;{current_path}"
+                        current_path = f"{python_path}:{current_path}"
                 
                 env['PATH'] = current_path
             
@@ -843,52 +841,38 @@ def send_command(name):
             # Log the command
             server_manager.add_console_log(name, f"$ {command}")
             
-            # Set up environment like Windows CMD
+            # Set up environment like Linux/Ubuntu terminal
             env = os.environ.copy()
             
             # Add Python to PATH if not already there
             python_paths = [
-                r"C:\Program Files\Python310",
-                r"C:\Program Files\Python39", 
-                r"C:\Program Files\Python38",
-                r"C:\Users\{}\AppData\Local\Programs\Python\Python310".format(os.getenv('USERNAME', '')),
-                r"C:\Users\{}\AppData\Local\Programs\Python\Python39".format(os.getenv('USERNAME', '')),
-                r"C:\Python310",
-                r"C:\Python39",
-                r"C:\Python38"
+                "/usr/bin",
+                "/usr/local/bin",
+                "/usr/local/sbin",
+                "/opt/python3/bin",
+                "/home/{}/.local/bin".format(os.getenv('USER', '')),
+                "/snap/bin"
             ]
             
             current_path = env.get('PATH', '')
             for python_path in python_paths:
                 if os.path.exists(python_path) and python_path not in current_path:
-                    current_path = f"{python_path};{python_path}\\Scripts;{current_path}"
+                    current_path = f"{python_path}:{current_path}"
             
             env['PATH'] = current_path
             
-            # Execute the command with proper Windows shell
-            if os.name == 'nt':  # Windows
-                process = subprocess.Popen(
-                    command,
-                    shell=True,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.STDOUT,
-                    stdin=subprocess.PIPE,
-                    text=True,
-                    cwd=server_dir,
-                    env=env,
-                    creationflags=subprocess.CREATE_NEW_CONSOLE
-                )
-            else:  # Linux/Mac
-                process = subprocess.Popen(
-                    command,
-                    shell=True,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.STDOUT,
-                    stdin=subprocess.PIPE,
-                    text=True,
-                    cwd=server_dir,
-                    env=env
-                )
+            # Execute the command with proper Linux shell
+            process = subprocess.Popen(
+                command,
+                shell=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                stdin=subprocess.PIPE,
+                text=True,
+                cwd=server_dir,
+                env=env,
+                executable='/bin/bash'  # Use bash for better command support
+            )
             
             # Get output with timeout
             try:
@@ -924,9 +908,11 @@ if __name__ == '__main__':
     os.makedirs('templates', exist_ok=True)
     os.makedirs('servers', exist_ok=True)
     
-    print("Server Manager starting...")
+    print("🚀 Server Manager starting on Ubuntu VPS...")
     print("Default login: hxc / 123")
     print(f"Local IP: {get_local_ip()}")
     print("Access the web interface at: http://localhost:5000")
+    print("For external access: http://YOUR_VPS_IP:5000")
     
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    # Run on all interfaces for VPS access
+    app.run(host='0.0.0.0', port=5000, debug=False, threaded=True)
