@@ -53,7 +53,7 @@ sudo certbot --nginx -d yourdomain.com
 ### 3. Firewall Configuration
 ```bash
 # Allow only necessary ports
-sudo ufw allow 8080
+sudo ufw allow 8443
 sudo ufw allow ssh
 sudo ufw enable
 ```
@@ -91,7 +91,7 @@ sudo tail -f /var/log/syslog
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `SECRET_KEY` | Flask secret key | Auto-generated |
-| `PORT` | Server port | 8080 |
+| `PORT` | Server port | 8443 |
 | `HOST` | Server host | 0.0.0.0 |
 
 ## File Permissions
