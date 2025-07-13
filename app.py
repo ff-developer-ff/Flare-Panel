@@ -283,7 +283,8 @@ def dashboard():
     
     return render_template('dashboard.html', 
                          username=session['username'],
-                         servers=server_manager.servers)
+                         servers=server_manager.servers,
+                         local_ip=get_local_ip())
 
 @app.route('/create_server', methods=['GET', 'POST'])
 def create_server():

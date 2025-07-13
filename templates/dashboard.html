@@ -131,14 +131,8 @@
                 <h2><i class="fas fa-tachometer-alt me-2"></i>Dashboard</h2>
             </div>
             <div class="col-md-6 text-end">
-                <a href="{{ url_for('file_manager') }}" class="btn btn-info me-2">
-                    <i class="fas fa-folder me-1"></i>File Manager
-                </a>
                 <a href="{{ url_for('create_server') }}" class="btn btn-primary me-2">
                     <i class="fas fa-plus me-1"></i>Create Flare Panel Server
-                </a>
-                <a href="{{ url_for('add_server') }}" class="btn btn-success">
-                    <i class="fas fa-cog me-1"></i>Custom Command
                 </a>
             </div>
         </div>
@@ -205,9 +199,6 @@
                         <div class="btn-group w-100" role="group">
                             <a href="{{ url_for('server_console', name=name) }}" class="btn btn-info">
                                 <i class="fas fa-terminal me-1"></i>Console
-                            </a>
-                            <a href="{{ url_for('server_file_manager', name=name) }}" class="btn btn-secondary">
-                                <i class="fas fa-folder me-1"></i>Files
                             </a>
                             <a href="{{ url_for('delete_server', name=name) }}" class="btn btn-danger" onclick="return confirm('Are you sure?')">
                                 <i class="fas fa-trash me-1"></i>Delete
