@@ -255,7 +255,27 @@
         }
 
         function clearConsole() {
-            document.getElementById('logContent').textContent = '';
+            if (confirm('Are you sure you want to clear all console logs?')) {
+                fetch('/api/clear_logs/{{ server_name }}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        document.getElementById('logContent').textContent = '';
+                        console.log('Logs cleared successfully');
+                    } else {
+                        alert('Error clearing logs: ' + data.error);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error clearing logs:', error);
+                    alert('Error clearing logs');
+                });
+            }
         }
 
         function scrollToBottom() {

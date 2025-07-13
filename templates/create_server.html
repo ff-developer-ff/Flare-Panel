@@ -133,7 +133,7 @@
                                 <select class="form-select" id="server_type" name="server_type" required onchange="updateServerInfo()">
                                     <option value="flask">Flare Panel + Python</option>
                                     <option value="gunicorn">Flare Panel + Gunicorn</option>
-                                    <option value="python_http">Flare Panel HTTP Server</option>
+                                    <option value="python_bot">Python Bot</option>
                                 </select>
                                 <div class="form-text" id="server_info">
                                     Flare Panel development server with Python. Good for development and testing.
@@ -167,7 +167,7 @@
             const info = {
                 'flask': 'Flare Panel development server with Python. Good for development and testing.',
                 'gunicorn': 'Production-ready Flare Panel server with Gunicorn WSGI. Command: gunicorn --bind 0.0.0.0:port --workers 2 app:app',
-                'python_http': 'Simple Flare Panel HTTP server using sockets. Lightweight and fast.'
+                'python_bot': 'Comprehensive Python Bot with Discord integration, API monitoring, and automation capabilities. Includes all standard Python libraries.'
             };
             
             serverInfo.textContent = info[serverType] || '';

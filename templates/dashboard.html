@@ -203,6 +203,9 @@
                             <a href="{{ url_for('server_console', name=name) }}" class="btn btn-info">
                                 <i class="fas fa-terminal me-1"></i>Console
                             </a>
+                            <a href="{{ url_for('server_file_manager', name=name) }}" class="btn btn-secondary">
+                                <i class="fas fa-folder me-1"></i>Files
+                            </a>
                             <a href="{{ url_for('delete_server', name=name) }}" class="btn btn-danger" onclick="return confirm('Are you sure?')">
                                 <i class="fas fa-trash me-1"></i>Delete
                             </a>
