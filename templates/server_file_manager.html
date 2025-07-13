@@ -3,36 +3,53 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Server Manager - {{ server_name }} Files</title>
+    <title>Flare Panel - {{ server_name }} Files</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/theme/monokai.min.css" rel="stylesheet">
     <style>
         body {
-            background-color: #f8f9fa;
+            background: linear-gradient(135deg, #0f0f0f 0%, #1a1a1a 50%, #0f0f0f 100%);
+            color: #ffffff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .navbar {
+            background: linear-gradient(90deg, #1a1a1a 0%, #2d2d2d 100%) !important;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
         }
         .file-item {
             cursor: pointer;
-            transition: background-color 0.2s;
+            transition: all 0.3s ease;
+            background: rgba(40, 40, 40, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            margin: 2px 0;
         }
         .file-item:hover {
-            background-color: #e9ecef;
+            background: rgba(255, 107, 53, 0.1);
+            border-color: rgba(255, 107, 53, 0.3);
+            transform: translateX(5px);
         }
         .folder-item {
-            color: #ffc107;
+            color: #ffa502;
+            text-shadow: 0 0 5px rgba(255, 165, 2, 0.3);
         }
         .file-item {
-            color: #6c757d;
+            color: #e0e0e0;
         }
         .breadcrumb-item + .breadcrumb-item::before {
             content: ">";
+            color: #ff6b35;
         }
         .server-header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
             color: white;
             padding: 20px 0;
             margin-bottom: 20px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(255, 107, 53, 0.3);
         }
         
         /* Code Editor Styles */
@@ -57,7 +74,7 @@
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
         <div class="container">
             <a class="navbar-brand" href="{{ url_for('dashboard') }}">
-                <i class="fas fa-server me-2"></i>Server Manager
+                <i class="fas fa-fire me-2"></i>Flare Panel
             </a>
             <div class="navbar-nav ms-auto">
                 <span class="navbar-text me-3">

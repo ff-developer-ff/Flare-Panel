@@ -11,7 +11,7 @@ def index():
     <!DOCTYPE html>
     <html>
     <head>
-        <title>Flask Server - Flare Panel</title>
+        <title>Gunicorn Flask Server - Flare Panel</title>
         <style>
             body {{ font-family: Arial, sans-serif; margin: 40px; background: #f0f0f0; }}
             .container {{ background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }}
@@ -22,17 +22,18 @@ def index():
     </head>
     <body>
         <div class="container">
-            <h1>🚀 Flask Server Running on Flare Panel!</h1>
+            <h1>🚀 Gunicorn Flask Server Running on Flare Panel!</h1>
             <div class="info">
                 <p><strong>Status:</strong> <span class="status">✅ Running</span></p>
-                <p><strong>Server:</strong> Python Flask on Flare Panel</p>
+                <p><strong>Server:</strong> Gunicorn + Flask on Flare Panel</p>
                 <p><strong>Port:</strong> {os.environ.get('PORT', '5000')}</p>
                 <p><strong>Host:</strong> {os.environ.get('HOST', '0.0.0.0')}</p>
                 <p><strong>Python:</strong> {sys.version.split()[0]} (3.10.12)</p>
                 <p><strong>Platform:</strong> {sys.platform}</p>
                 <p><strong>Server Name:</strong> {os.environ.get('SERVER_NAME', 'Unknown')}</p>
+                <p><strong>WSGI Server:</strong> Gunicorn</p>
             </div>
-            <p>This Flask application is running successfully on Flare Panel. You can modify this file to add your own routes and functionality.</p>
+            <p>This Gunicorn Flask application is running successfully on Flare Panel. Production-ready WSGI server.</p>
             <p><strong>Current time:</strong> {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
         </div>
     </body>
@@ -43,8 +44,8 @@ def index():
 def status():
     return jsonify({
         'status': 'running',
-        'server': 'Python Flask on Flare Panel',
-        'message': 'Server is running successfully on Flare Panel!'
+        'server': 'Gunicorn + Flask on Flare Panel',
+        'message': 'Server is running successfully on Flare Panel with Gunicorn!'
     })
 
 @app.route('/api/info')
@@ -53,9 +54,11 @@ def info():
         'server_name': os.environ.get('SERVER_NAME', 'Unknown'),
         'python_version': sys.version,
         'flask_version': '2.0+',
+        'gunicorn_version': '20.1+',
         'working_directory': os.getcwd(),
         'platform': sys.platform,
-        'hostname': os.uname().nodename if hasattr(os, 'uname') else 'Unknown'
+        'hostname': os.uname().nodename if hasattr(os, 'uname') else 'Unknown',
+        'wsgi_server': 'Gunicorn'
     })
 
 if __name__ == '__main__':
@@ -63,13 +66,15 @@ if __name__ == '__main__':
         port = int(os.environ.get('PORT', 5000))
         host = os.environ.get('HOST', '0.0.0.0')
         
-        print(f"Starting Flask server on {host}:{port}")
+        print(f"Starting Gunicorn Flask server on {host}:{port}")
         print(f"Working directory: {os.getcwd()}")
         print(f"Server started at: {datetime.datetime.now()}")
         print(f"Python version: {sys.version}")
         print(f"Platform: {sys.platform}")
+        print(f"WSGI Server: Gunicorn")
         
-        # Use Ubuntu/Linux compatible configuration
+        # For development, use Flask's built-in server
+        # In production, use: gunicorn --bind 0.0.0.0:port --workers 2 app:app
         app.run(
             host=host, 
             port=port, 
@@ -79,4 +84,4 @@ if __name__ == '__main__':
         
     except Exception as e:
         print(f"Error starting server: {e}")
-        sys.exit(1)
+        sys.exit(1) 

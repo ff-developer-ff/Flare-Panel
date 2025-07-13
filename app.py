@@ -61,7 +61,7 @@ class ServerManager:
         self.save_servers()
         return server
     
-    def create_flask_server(self, name, host, port, app_file='app.py'):
+    def create_flask_server(self, name, host, port, app_file='app.py', server_type='flask'):
         # Create server directory
         server_dir = os.path.join('servers', name)
         os.makedirs(server_dir, exist_ok=True)
@@ -70,9 +70,15 @@ class ServerManager:
         logs_dir = os.path.join('logs', name)
         os.makedirs(logs_dir, exist_ok=True)
         
-        # Use python app.py instead of gunicorn
-        command = f'python {app_file}'
-        return self.add_server(name, host, port, command, 'flask_python', app_file)
+        # Set command based on server type
+        if server_type == 'gunicorn':
+            command = f'gunicorn --bind {host}:{port} --workers 2 {app_file}:app'
+        elif server_type == 'python_http':
+            command = f'python3 {app_file}'
+        else:  # flask
+            command = f'python3 {app_file}'
+        
+        return self.add_server(name, host, port, command, server_type, app_file)
     
     def get_console_logs(self, name, lines=100):
         if name in self.servers:
@@ -124,9 +130,13 @@ class ServerManager:
             # Get absolute paths
             server_dir_abs = os.path.abspath(server_dir)
             
-            # Modify command to use absolute path for app file
+            # Modify command to use absolute path for app file and ensure python3 is used
             command_parts = server['command'].split()
-            if len(command_parts) >= 2 and command_parts[0] == 'python':
+            if len(command_parts) >= 2 and command_parts[0] in ['python', 'python3']:
+                # Convert python to python3 for Ubuntu compatibility
+                if command_parts[0] == 'python':
+                    command_parts[0] = 'python3'
+                
                 # This is a python command, modify the app file path
                 app_file = command_parts[1]
                 if not os.path.isabs(app_file):
@@ -335,32 +345,36 @@ def create_server():
         name = request.form['name']
         port = int(request.form['port'])
         app_file = request.form['app_file']
+        server_type = request.form.get('server_type', 'flask')
         
         if name in server_manager.servers:
             flash('Server name already exists', 'error')
         else:
             # Create the server
-            server = server_manager.create_flask_server(name, '0.0.0.0', port, app_file)
+            server = server_manager.create_flask_server(name, '0.0.0.0', port, app_file, server_type)
             
-            # Create the Flask app file
+            # Create the server app file
             server_dir = os.path.join('servers', name)
             app_path = os.path.join(server_dir, app_file)
             
-            # Read the template and create the app file
-            template_path = os.path.join('templates', 'flask_app_template.py')
+            # Select template based on server type
+            template_name = 'flask_app_template.py'
+            if server_type == 'gunicorn':
+                template_name = 'gunicorn_app_template.py'
+            elif server_type == 'python_http':
+                template_name = 'python_http_template.py'
+            
+            template_path = os.path.join('templates', template_name)
             if os.path.exists(template_path):
                 with open(template_path, 'r', encoding='utf-8') as f:
                     template_content = f.read()
                 
-                # Template is now using f-strings, no replacement needed
-                app_content = template_content
-                
                 with open(app_path, 'w', encoding='utf-8') as f:
-                    f.write(app_content)
+                    f.write(template_content)
                 
-                flash(f'Flask server created successfully with {app_file}', 'success')
+                flash(f'{server_type.title()} server created successfully with {app_file}', 'success')
             else:
-                flash('Flask server created but template not found', 'warning')
+                flash(f'{server_type.title()} server created but template not found', 'warning')
             
             return redirect(url_for('dashboard'))
     
@@ -435,6 +449,10 @@ def file_manager():
     files = []
     try:
         for item in os.listdir(path):
+            # Skip logs directory and other system directories
+            if item in ['logs', '__pycache__', '.git', 'venv', 'node_modules']:
+                continue
+                
             item_path = os.path.join(path, item)
             if os.path.isdir(item_path):
                 files.append({
@@ -459,6 +477,9 @@ def file_manager():
                 })
     except:
         files = []
+    
+    # Sort files: directories first, then files
+    files.sort(key=lambda x: (not x['is_dir'], x['name'].lower()))
     
     return render_template('file_manager.html', 
                          username=session['username'],
@@ -488,6 +509,10 @@ def server_file_manager(name):
     files = []
     try:
         for item in os.listdir(path):
+            # Skip system directories
+            if item in ['__pycache__', '.git', 'venv', 'node_modules']:
+                continue
+                
             item_path = os.path.join(path, item)
             if os.path.isdir(item_path):
                 files.append({
@@ -512,6 +537,9 @@ def server_file_manager(name):
                 })
     except:
         files = []
+    
+    # Sort files: directories first, then files
+    files.sort(key=lambda x: (not x['is_dir'], x['name'].lower()))
     
     return render_template('server_file_manager.html', 
                          username=session['username'],
@@ -623,6 +651,32 @@ def rename_file():
                 flash(f'File renamed successfully to {new_name}', 'success')
         except Exception as e:
             flash(f'Failed to rename file: {str(e)}', 'error')
+    else:
+        flash('Invalid parameters', 'error')
+    
+    return redirect(url_for('file_manager', path=current_path))
+
+@app.route('/move_file', methods=['POST'])
+def move_file():
+    if 'username' not in session:
+        return redirect(url_for('login'))
+    
+    source_path = request.form.get('source_path')
+    destination_path = request.form.get('destination_path')
+    current_path = request.form.get('current_path', '.')
+    
+    if source_path and destination_path and os.path.exists(source_path):
+        try:
+            # Ensure destination directory exists
+            os.makedirs(os.path.dirname(destination_path), exist_ok=True)
+            
+            if os.path.exists(destination_path):
+                flash('A file with that name already exists at destination', 'error')
+            else:
+                os.rename(source_path, destination_path)
+                flash(f'File moved successfully to {destination_path}', 'success')
+        except Exception as e:
+            flash(f'Failed to move file: {str(e)}', 'error')
     else:
         flash('Invalid parameters', 'error')
     
@@ -758,6 +812,37 @@ def server_rename_file(name):
                 flash(f'File renamed successfully to {new_name}', 'success')
         except Exception as e:
             flash(f'Failed to rename file: {str(e)}', 'error')
+    else:
+        flash('Invalid parameters', 'error')
+    
+    return redirect(url_for('server_file_manager', name=name, path=current_path))
+
+@app.route('/server_move_file/<name>', methods=['POST'])
+def server_move_file(name):
+    if 'username' not in session:
+        return redirect(url_for('login'))
+    
+    if name not in server_manager.servers:
+        flash('Server not found', 'error')
+        return redirect(url_for('dashboard'))
+    
+    source_path = request.form.get('source_path')
+    destination_path = request.form.get('destination_path')
+    default_path = os.path.join('servers', name)
+    current_path = request.form.get('current_path', default_path)
+    
+    if source_path and destination_path and os.path.exists(source_path):
+        try:
+            # Ensure destination directory exists
+            os.makedirs(os.path.dirname(destination_path), exist_ok=True)
+            
+            if os.path.exists(destination_path):
+                flash('A file with that name already exists at destination', 'error')
+            else:
+                os.rename(source_path, destination_path)
+                flash(f'File moved successfully to {destination_path}', 'success')
+        except Exception as e:
+            flash(f'Failed to move file: {str(e)}', 'error')
     else:
         flash('Invalid parameters', 'error')
     
@@ -949,6 +1034,29 @@ def api_save_file():
             f.write(content)
         
         return jsonify({'success': True})
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/read_file')
+def api_read_file():
+    if 'username' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    path = request.args.get('path')
+    if not path or not os.path.exists(path):
+        return jsonify({'success': False, 'error': 'File not found'})
+    
+    try:
+        # Check if file is readable and not too large (max 1MB)
+        if os.path.getsize(path) > 1024 * 1024:
+            return jsonify({'success': False, 'error': 'File too large (max 1MB)'})
+        
+        # Read file content
+        with open(path, 'r', encoding='utf-8') as f:
+            content = f.read()
+        
+        return jsonify({'success': True, 'content': content})
         
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})

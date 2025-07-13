@@ -40,6 +40,30 @@ chmod +x install_ubuntu.sh
 curl -sSL https://raw.githubusercontent.com/ff-developer-ff/PYTHON-PANEL/main/install_ubuntu.sh | bash
 ```
 
+## 📋 **Complete Installation Commands (Copy-Paste):**
+
+```bash
+# 1. System update
+sudo apt update && sudo apt upgrade -y
+
+# 2. Install git
+sudo apt install git -y
+
+# 3. Clone repository
+git clone https://github.com/ff-developer-ff/PYTHON-PANEL.git
+cd PYTHON-PANEL
+
+# 4. Run installation
+chmod +x install_ubuntu.sh
+./install_ubuntu.sh
+```
+
+## 🔥 **One-Line Installation (Quick Start):**
+
+```bash
+curl -sSL https://raw.githubusercontent.com/ff-developer-ff/PYTHON-PANEL/main/install_ubuntu.sh | bash
+```
+
 ### Method 2: Manual Installation
 ```bash
 # Update system
@@ -99,6 +123,18 @@ PYTHON-PANEL/
 - Open browser: `http://YOUR_VPS_IP:5010`
 - Login with: hxc / 123
 
+### 2. Installation Verification
+```bash
+# Check service status
+sudo systemctl status server-manager
+
+# Check if running
+sudo systemctl is-active server-manager
+
+# View logs
+sudo journalctl -u server-manager -f
+```
+
 ### 2. Create a Server
 - Click "Create Server"
 - Enter server name and port
@@ -144,12 +180,32 @@ sudo journalctl -u server-manager -f
 sudo systemctl enable server-manager
 ```
 
+## 🚀 **Quick Commands Reference:**
+
+```bash
+# Installation
+git clone https://github.com/ff-developer-ff/PYTHON-PANEL.git && cd PYTHON-PANEL && chmod +x install_ubuntu.sh && ./install_ubuntu.sh
+
+# Service Management
+sudo systemctl status server-manager    # Check status
+sudo systemctl restart server-manager   # Restart service
+sudo systemctl stop server-manager      # Stop service
+sudo systemctl start server-manager     # Start service
+
+# Logs
+sudo journalctl -u server-manager -f    # View live logs
+sudo journalctl -u server-manager -n 50 # View last 50 lines
+
+# Update
+cd PYTHON-PANEL && git pull origin main # Update from GitHub
+```
+
 ## 🛠️ Troubleshooting
 
 ### Port Already in Use
 ```bash
-# Find process using port 5000
-sudo lsof -i :5000
+# Find process using port 5010
+sudo lsof -i :5010
 
 # Kill process
 sudo kill -9 PID
@@ -169,6 +225,30 @@ sudo apt install python3 python3-pip -y
 
 # Check Python version
 python3 --version
+```
+
+### Service Won't Start
+```bash
+# Check service logs
+sudo journalctl -u server-manager -f
+
+# Check if port is available
+sudo netstat -tlnp | grep :5010
+
+# Restart service
+sudo systemctl restart server-manager
+```
+
+### Can't Access Web Interface
+```bash
+# Check if service is running
+sudo systemctl status server-manager
+
+# Check firewall
+sudo ufw status
+
+# Allow port manually (if needed)
+sudo ufw allow 5010
 ```
 
 ## 🔒 Security Notes
