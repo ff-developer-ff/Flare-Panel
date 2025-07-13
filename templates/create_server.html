@@ -114,11 +114,15 @@
 
                     <form method="POST">
                         <div class="row">
-                            <div class="col-md-6 mb-3">
+                            <div class="col-md-4 mb-3">
                                 <label for="name" class="form-label">Server Name</label>
                                 <input type="text" class="form-control" id="name" name="name" required>
                             </div>
-                            <div class="col-md-6 mb-3">
+                            <div class="col-md-4 mb-3">
+                                <label for="host" class="form-label">Host</label>
+                                <input type="text" class="form-control" id="host" name="host" value="0.0.0.0" required>
+                            </div>
+                            <div class="col-md-4 mb-3">
                                 <label for="port" class="form-label">Port</label>
                                 <input type="number" class="form-control" id="port" name="port" value="5000" required>
                             </div>

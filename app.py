@@ -293,7 +293,7 @@ def create_server():
     
     if request.method == 'POST':
         name = request.form['name']
-        host = request.form['host']
+        host = request.form.get('host', '0.0.0.0')  # Default to 0.0.0.0 if not provided
         port = int(request.form['port'])
         server_type = request.form['server_type']
         
