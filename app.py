@@ -1301,21 +1301,126 @@ def unarchive_file():
         return redirect(url_for('file_manager', path=current_path))
     
     try:
+        # Get absolute path for the archive file
+        if current_path == '.':
+            archive_path = path
+        else:
+            archive_path = os.path.join(current_path, path)
+        
+        # Check if file exists
+        if not os.path.exists(archive_path):
+            flash(f'Archive file not found: {archive_path}', 'error')
+            return redirect(url_for('file_manager', path=current_path))
+        
+        # Create extraction directory with archive name
+        archive_name = os.path.splitext(os.path.basename(path))[0]
+        if archive_name.endswith('.tar'):
+            archive_name = archive_name[:-4]  # Remove .tar from .tar.gz
+        
+        extract_dir = os.path.join(os.path.dirname(archive_path), archive_name)
+        
+        # Check if extraction directory already exists
+        if os.path.exists(extract_dir):
+            flash(f'Extraction directory already exists: {archive_name}', 'error')
+            return redirect(url_for('file_manager', path=current_path))
+        
+        # Extract based on file extension
         if path.endswith('.zip'):
-            with zipfile.ZipFile(path, 'r') as zip_ref:
-                zip_ref.extractall(os.path.dirname(path))
-            flash('Archive extracted successfully', 'success')
+            with zipfile.ZipFile(archive_path, 'r') as zip_ref:
+                zip_ref.extractall(extract_dir)
+            flash(f'ZIP archive extracted to: {archive_name}', 'success')
         elif path.endswith(('.tar.gz', '.tgz')):
             import tarfile
-            with tarfile.open(path, 'r:gz') as tar_ref:
-                tar_ref.extractall(os.path.dirname(path))
-            flash('Archive extracted successfully', 'success')
+            with tarfile.open(archive_path, 'r:gz') as tar_ref:
+                tar_ref.extractall(extract_dir)
+            flash(f'TAR.GZ archive extracted to: {archive_name}', 'success')
+        elif path.endswith('.rar'):
+            # For RAR files, we'll use unrar if available
+            try:
+                import subprocess
+                result = subprocess.run(['unrar', 'x', archive_path, extract_dir], 
+                                      capture_output=True, text=True, timeout=30)
+                if result.returncode == 0:
+                    flash(f'RAR archive extracted to: {archive_name}', 'success')
+                else:
+                    flash('Failed to extract RAR file. Make sure unrar is installed.', 'error')
+            except FileNotFoundError:
+                flash('RAR extraction requires unrar to be installed on the system', 'error')
         else:
-            flash('Unsupported archive format', 'error')
+            flash('Unsupported archive format. Supported: .zip, .tar.gz, .tgz, .rar', 'error')
+    except PermissionError:
+        flash('Permission denied extracting archive', 'error')
     except Exception as e:
         flash(f'Error extracting archive: {str(e)}', 'error')
     
     return redirect(url_for('file_manager', path=current_path))
+
+@app.route('/root_unarchive_file')
+def root_unarchive_file():
+    if 'username' not in session:
+        return redirect(url_for('login'))
+    
+    path = request.args.get('path')
+    current_path = request.args.get('current_path', '.')
+    
+    if not path:
+        flash('Path required', 'error')
+        return redirect(url_for('root_file_manager', path=current_path))
+    
+    try:
+        # Get absolute path for the archive file
+        if current_path == '.':
+            archive_path = path
+        else:
+            archive_path = os.path.join(current_path, path)
+        
+        # Check if file exists
+        if not os.path.exists(archive_path):
+            flash(f'Archive file not found: {archive_path}', 'error')
+            return redirect(url_for('root_file_manager', path=current_path))
+        
+        # Create extraction directory with archive name
+        archive_name = os.path.splitext(os.path.basename(path))[0]
+        if archive_name.endswith('.tar'):
+            archive_name = archive_name[:-4]  # Remove .tar from .tar.gz
+        
+        extract_dir = os.path.join(os.path.dirname(archive_path), archive_name)
+        
+        # Check if extraction directory already exists
+        if os.path.exists(extract_dir):
+            flash(f'Extraction directory already exists: {archive_name}', 'error')
+            return redirect(url_for('root_file_manager', path=current_path))
+        
+        # Extract based on file extension
+        if path.endswith('.zip'):
+            with zipfile.ZipFile(archive_path, 'r') as zip_ref:
+                zip_ref.extractall(extract_dir)
+            flash(f'ZIP archive extracted to: {archive_name}', 'success')
+        elif path.endswith(('.tar.gz', '.tgz')):
+            import tarfile
+            with tarfile.open(archive_path, 'r:gz') as tar_ref:
+                tar_ref.extractall(extract_dir)
+            flash(f'TAR.GZ archive extracted to: {archive_name}', 'success')
+        elif path.endswith('.rar'):
+            # For RAR files, we'll use unrar if available
+            try:
+                import subprocess
+                result = subprocess.run(['unrar', 'x', archive_path, extract_dir], 
+                                      capture_output=True, text=True, timeout=30)
+                if result.returncode == 0:
+                    flash(f'RAR archive extracted to: {archive_name}', 'success')
+                else:
+                    flash('Failed to extract RAR file. Make sure unrar is installed.', 'error')
+            except FileNotFoundError:
+                flash('RAR extraction requires unrar to be installed on the system', 'error')
+        else:
+            flash('Unsupported archive format. Supported: .zip, .tar.gz, .tgz, .rar', 'error')
+    except PermissionError:
+        flash('Permission denied extracting archive', 'error')
+    except Exception as e:
+        flash(f'Error extracting archive: {str(e)}', 'error')
+    
+    return redirect(url_for('root_file_manager', path=current_path))
 
 @app.route('/server_unarchive_file/<name>')
 def server_unarchive_file(name):
@@ -1346,15 +1451,27 @@ def server_unarchive_file(name):
             flash('Access denied', 'error')
             return redirect(url_for('server_file_manager', name=name, path=current_path))
         
+        # Create extraction directory with archive name
+        archive_name = os.path.splitext(os.path.basename(path))[0]
+        if archive_name.endswith('.tar'):
+            archive_name = archive_name[:-4]  # Remove .tar from .tar.gz
+        
+        extract_dir = os.path.join(os.path.dirname(full_path), archive_name)
+        
+        # Check if extraction directory already exists
+        if os.path.exists(extract_dir):
+            flash(f'Extraction directory already exists: {archive_name}', 'error')
+            return redirect(url_for('server_file_manager', name=name, path=current_path))
+        
         if path.endswith('.zip'):
             with zipfile.ZipFile(full_path, 'r') as zip_ref:
-                zip_ref.extractall(os.path.dirname(full_path))
-            flash('Archive extracted successfully', 'success')
+                zip_ref.extractall(extract_dir)
+            flash(f'ZIP archive extracted to: {archive_name}', 'success')
         elif path.endswith(('.tar.gz', '.tgz')):
             import tarfile
             with tarfile.open(full_path, 'r:gz') as tar_ref:
-                tar_ref.extractall(os.path.dirname(full_path))
-            flash('Archive extracted successfully', 'success')
+                tar_ref.extractall(extract_dir)
+            flash(f'TAR.GZ archive extracted to: {archive_name}', 'success')
         elif path.endswith('.rar'):
             # For RAR files, we'll use unrar if available, otherwise show a message
             try:
@@ -1373,6 +1490,131 @@ def server_unarchive_file(name):
         flash(f'Error extracting archive: {str(e)}', 'error')
     
     return redirect(url_for('server_file_manager', name=name, path=current_path))
+
+# Cleanup extracted directories
+@app.route('/cleanup_extracted/<name>')
+def cleanup_extracted(name):
+    if 'username' not in session:
+        return redirect(url_for('login'))
+    
+    if name not in server_manager.servers:
+        flash('Server not found', 'error')
+        return redirect(url_for('dashboard'))
+    
+    current_path = request.args.get('current_path', '.')
+    
+    try:
+        server_dir = os.path.join('servers', name)
+        base_dir = os.path.abspath(server_dir)
+        current_abs_path = os.path.abspath(os.path.join(base_dir, current_path))
+        
+        # Security: ensure path is within server directory
+        if not current_abs_path.startswith(base_dir):
+            flash('Access denied', 'error')
+            return redirect(url_for('server_file_manager', name=name, path=current_path))
+        
+        # Find and remove extracted directories
+        cleaned_count = 0
+        for item in os.listdir(current_abs_path):
+            item_path = os.path.join(current_abs_path, item)
+            if os.path.isdir(item_path):
+                # Check if this looks like an extracted directory (contains files but no subdirectories)
+                try:
+                    contents = os.listdir(item_path)
+                    if contents and not any(os.path.isdir(os.path.join(item_path, content)) for content in contents):
+                        import shutil
+                        shutil.rmtree(item_path)
+                        cleaned_count += 1
+                except:
+                    pass
+        
+        if cleaned_count > 0:
+            flash(f'Cleaned up {cleaned_count} extracted directories', 'success')
+        else:
+            flash('No extracted directories found to clean up', 'info')
+            
+    except Exception as e:
+        flash(f'Error cleaning up: {str(e)}', 'error')
+    
+    return redirect(url_for('server_file_manager', name=name, path=current_path))
+
+@app.route('/cleanup_extracted_root')
+def cleanup_extracted_root():
+    if 'username' not in session:
+        return redirect(url_for('login'))
+    
+    current_path = request.args.get('current_path', '.')
+    
+    try:
+        # Get absolute path
+        if current_path == '.':
+            current_abs_path = os.path.abspath('.')
+        else:
+            current_abs_path = os.path.abspath(current_path)
+        
+        # Find and remove extracted directories
+        cleaned_count = 0
+        for item in os.listdir(current_abs_path):
+            item_path = os.path.join(current_abs_path, item)
+            if os.path.isdir(item_path):
+                # Check if this looks like an extracted directory (contains files but no subdirectories)
+                try:
+                    contents = os.listdir(item_path)
+                    if contents and not any(os.path.isdir(os.path.join(item_path, content)) for content in contents):
+                        import shutil
+                        shutil.rmtree(item_path)
+                        cleaned_count += 1
+                except:
+                    pass
+        
+        if cleaned_count > 0:
+            flash(f'Cleaned up {cleaned_count} extracted directories', 'success')
+        else:
+            flash('No extracted directories found to clean up', 'info')
+            
+    except Exception as e:
+        flash(f'Error cleaning up: {str(e)}', 'error')
+    
+    return redirect(url_for('root_file_manager', path=current_path))
+
+@app.route('/cleanup_extracted_files')
+def cleanup_extracted_files():
+    if 'username' not in session:
+        return redirect(url_for('login'))
+    
+    current_path = request.args.get('current_path', '.')
+    
+    try:
+        # Get absolute path
+        if current_path == '.':
+            current_abs_path = os.path.abspath('.')
+        else:
+            current_abs_path = os.path.abspath(current_path)
+        
+        # Find and remove extracted directories
+        cleaned_count = 0
+        for item in os.listdir(current_abs_path):
+            item_path = os.path.join(current_abs_path, item)
+            if os.path.isdir(item_path):
+                # Check if this looks like an extracted directory (contains files but no subdirectories)
+                try:
+                    contents = os.listdir(item_path)
+                    if contents and not any(os.path.isdir(os.path.join(item_path, content)) for content in contents):
+                        import shutil
+                        shutil.rmtree(item_path)
+                        cleaned_count += 1
+                except:
+                    pass
+        
+        if cleaned_count > 0:
+            flash(f'Cleaned up {cleaned_count} extracted directories', 'success')
+        else:
+            flash('No extracted directories found to clean up', 'info')
+            
+    except Exception as e:
+        flash(f'Error cleaning up: {str(e)}', 'error')
+    
+    return redirect(url_for('file_manager', path=current_path))
 
 # Server File Manager Routes
 @app.route('/server_file_manager/<name>')
@@ -1871,13 +2113,13 @@ def network_info():
         for interface, addresses in net_interfaces.items():
             network_info['interfaces'][interface] = []
             for addr in addresses:
-                if addr.family == psutil.AF_INET:  # IPv4
+                if addr.family == socket.AF_INET:  # IPv4
                     network_info['interfaces'][interface].append({
                         'type': 'IPv4',
                         'address': addr.address,
                         'netmask': addr.netmask
                     })
-                elif addr.family == psutil.AF_INET6:  # IPv6
+                elif addr.family == socket.AF_INET6:  # IPv6
                     network_info['interfaces'][interface].append({
                         'type': 'IPv6',
                         'address': addr.address,

@@ -181,6 +181,10 @@
                 <span class="server-badge">{{ server_name }}</span>
             </div>
             <div class="col-md-6 text-end">
+                <a href="{{ url_for('cleanup_extracted', name=server_name, current_path=current_path) }}" class="btn btn-warning me-2" 
+                   onclick="return confirm('Clean up extracted directories? This will remove all extracted archive folders.')">
+                    <i class="fas fa-broom me-1"></i>Clean Extracted
+                </a>
                 <button class="btn btn-warning" onclick="installDependencies()">
                     <i class="fas fa-download me-1"></i>Install Dependencies
                 </button>

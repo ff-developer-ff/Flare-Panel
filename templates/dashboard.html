@@ -131,6 +131,9 @@
                 <h2><i class="fas fa-tachometer-alt me-2"></i>Dashboard</h2>
             </div>
             <div class="col-md-6 text-end">
+                <button class="btn btn-warning me-2" onclick="showSystemMonitor()">
+                    <i class="fas fa-chart-line me-1"></i>System Monitor
+                </button>
                 <a href="{{ url_for('root_file_manager') }}" class="btn btn-danger me-2">
                     <i class="fas fa-root me-1"></i>Root File Manager
                 </a>
@@ -140,9 +143,6 @@
                 <a href="{{ url_for('create_server') }}" class="btn btn-primary me-2">
                     <i class="fas fa-plus me-1"></i>Create Flare Panel Server
                 </a>
-                <button class="btn btn-warning me-2" onclick="showSystemMonitor()">
-                    <i class="fas fa-chart-line me-1"></i>System Monitor
-                </button>
             </div>
         </div>
 
