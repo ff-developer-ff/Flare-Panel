@@ -1,189 +1,671 @@
-# Python Server Management System
+# 🔥 Flare Panel - Complete Guide
 
-A web-based Python server management application built with Flask that allows you to start, stop, and monitor multiple Python servers from a beautiful web interface. Perfect for VPS hosting and development environments.
+![Flare Panel](https://img.shields.io/badge/Flare%20Panel-Advanced%20Server%20Management-orange?style=for-the-badge&logo=fire)
+![Python](https://img.shields.io/badge/Python-3.10+-blue?style=for-the-badge&logo=python)
+![Flask](https://img.shields.io/badge/Flask-Web%20Framework-green?style=for-the-badge&logo=flask)
+![Ubuntu](https://img.shields.io/badge/Ubuntu-20.04+-orange?style=for-the-badge&logo=ubuntu)
 
-## Features
+## 📋 Table of Contents
+- [Overview](#overview)
+- [Features](#features)
+- [VPS Requirements](#vps-requirements)
+- [Installation](#installation)
+- [Configuration](#configuration)
+- [Usage](#usage)
+- [Server Types](#server-types)
+- [File Management](#file-management)
+- [Console Commands](#console-commands)
+- [Security](#security)
+- [Troubleshooting](#troubleshooting)
+- [API Reference](#api-reference)
 
-- 🔐 **Secure Login System** - User authentication with session management
-- 🖥️ **Server Management** - Start, stop, and monitor multiple servers
-- 🚀 **Quick Server Creation** - Create Python servers with one-click templates
-- 🐍 **Gunicorn Support** - Flask applications with Gunicorn WSGI server
-- 📁 **File Management** - Upload, create folders, and manage files
-- 📊 **Real-time Dashboard** - Beautiful interface with server status cards
-- 🌐 **Host & Port Management** - Configure servers with custom host IP and ports
-- 📝 **Server Logs** - Track server start/stop events
-- 🔄 **Auto-refresh** - Dashboard automatically updates every 30 seconds
-- 📱 **Responsive Design** - Works on desktop and mobile devices
-- 🗑️ **Server Deletion** - Remove servers with confirmation
+---
 
-## Installation
+## 🚀 Overview
 
-1. **Install Python dependencies:**
-   ```bash
-   pip install -r requirements.txt
-   ```
+**Flare Panel** is a modern, enterprise-grade server management platform designed for Python hosting and server administration. Built with Flask and featuring a sleek dark theme with glassmorphism effects, Flare Panel provides comprehensive server management capabilities similar to Pterodactyl but specifically optimized for Python applications.
 
-2. **Run the application:**
-   ```bash
-   python app.py
-   ```
+### Key Highlights
+- **Modern UI/UX**: Dark theme with orange accents and glassmorphism effects
+- **Real-time Console**: Live command execution and log monitoring
+- **File Management**: Advanced file browser with code editor
+- **Multi-Server Support**: Manage multiple Python servers simultaneously
+- **VPS Optimized**: Designed specifically for Ubuntu VPS environments
 
-3. **Access the web interface:**
-   - Open your browser and go to: `http://localhost:5000`
-   - Or use your local IP address: `http://YOUR_IP:5000`
+---
 
-## Default Login
+## ✨ Features
 
-- **Username:** `hxc`
-- **Password:** `123`
+### 🎨 User Interface
+- **Dark Theme**: Professional black gradient background
+- **Glassmorphism**: Modern glass-like effects with backdrop blur
+- **Responsive Design**: Works on desktop and mobile devices
+- **Smooth Animations**: Hover effects and transitions
+- **Fire Icon**: Branded with fire icon for Flare Panel identity
 
-## How to Use
+### 🖥️ Server Management
+- **Multiple Server Types**: Flask, Gunicorn, Python HTTP Server
+- **Real-time Status**: Live server status monitoring
+- **Start/Stop Control**: Easy server control from console
+- **Process Management**: PID tracking and process monitoring
+- **Port Management**: Dynamic port allocation and management
 
-### 1. Login
-- Access the application and login with the default credentials
-- You can change the password in the `app.py` file
+### 📁 File Management
+- **File Browser**: Navigate server directories
+- **Code Editor**: Built-in CodeMirror editor with syntax highlighting
+- **File Operations**: Upload, download, delete, rename, move
+- **Folder Management**: Create and manage directories
+- **Archive Support**: Extract ZIP, TAR.GZ, RAR files
 
-### 2. Create a Server
-- Click "Create Server" button for quick setup
-- Choose server type:
-  - **Flask + Gunicorn** - Production Python Flask with Gunicorn WSGI
-  - **Flask Development** - Python Flask development server
-  - **Python HTTP** - Simple Python HTTP server
-- Fill in the details and create
+### 💻 Console Features
+- **Real-time Logs**: Live server output monitoring
+- **Command Execution**: Execute commands directly on servers
+- **Command History**: Arrow key navigation through command history
+- **Auto-refresh**: Automatic log updates every second
+- **Error Handling**: Comprehensive error reporting
 
-### 3. File Management
-- Click "File Manager" button to manage files
-- Upload files to any directory
-- Create new folders
-- Delete files and folders
-- Navigate through directories with breadcrumbs
+### 🔧 Advanced Features
+- **Template System**: Pre-built server templates
+- **Environment Variables**: Automatic environment setup
+- **Log Management**: Centralized log storage
+- **Backup System**: Server configuration backups
+- **Multi-user Support**: Session-based authentication
 
-### 4. Add Custom Server
-- Click "Custom Server" button for advanced setup
-- Fill in the details:
-  - **Server Name:** A friendly name for your server
-  - **Host IP:** The IP address (e.g., 127.0.0.1, 0.0.0.0)
-  - **Port:** The port number (1-65535)
-  - **Start Command:** The command to start your server (e.g., `python myapp.py`)
+---
 
-### 5. Manage Servers
-- **Start Server:** Click the green "Start" button
-- **Stop Server:** Click the red "Stop" button
-- **Delete Server:** Click the trash icon (server will be stopped first)
+## 💻 VPS Requirements
 
-### 6. Monitor Status
-- Dashboard shows real-time server status
-- View running/stopped server counts
-- See local IP address
-- Auto-refresh every 30 seconds
+### Minimum Requirements
+- **OS**: Ubuntu 20.04 LTS or higher
+- **RAM**: 1 GB (2 GB recommended)
+- **Storage**: 10 GB available space
+- **CPU**: 1 vCPU (2 vCPU recommended)
+- **Network**: Stable internet connection
+- **Python**: Python 3.10+ (3.10.12 tested)
 
-## Python Server Types
+### Recommended Requirements
+- **OS**: Ubuntu 22.04 LTS
+- **RAM**: 4 GB or higher
+- **Storage**: 20 GB SSD
+- **CPU**: 2+ vCPU cores
+- **Network**: High-speed connection
+- **Python**: Python 3.11+ for best performance
 
-The system supports multiple Python server types with automatic configuration:
-
-### Flask + Gunicorn
-- **Command:** `gunicorn --bind 0.0.0.0:8080 --workers 2 app.py:app`
-- **Features:** Production-ready WSGI server with multiple workers
-- **Best for:** Production Python Flask applications
-
-### Flask Development
-- **Command:** `python -m flask run --host=0.0.0.0 --port=8080`
-- **Features:** Flask development server with auto-reload
-- **Best for:** Development and testing
-
-### Python HTTP
-- **Command:** `python -m http.server 9000 --bind 0.0.0.0`
-- **Features:** Simple static file server
-- **Best for:** Static websites and file sharing
-
-## Example Server Commands
-
-For custom servers, here are some example commands:
-
-### Custom Python Flask Server
-```
-python -m flask run --host=0.0.0.0 --port=8080
-```
-
-### Custom Python Django Server
-```
-python manage.py runserver 0.0.0.0:8000
+### System Dependencies
+```bash
+# Required system packages
+- python3 (3.10+)
+- python3-pip
+- python3-venv
+- git
+- curl
+- wget
+- unzip
+- tar
+- gzip
 ```
 
-### Custom Python FastAPI Server
-```
-uvicorn main:app --host 0.0.0.0 --port 8000
-```
+---
 
-### Custom Python Simple HTTP Server
-```
-python -m http.server 9000
-```
+## 🛠️ Installation
 
-## File Structure
+### Quick Installation (Ubuntu VPS)
 
-```
-PYTHON PNL/
-├── app.py                    # Main Flask application
-├── requirements.txt          # Python dependencies
-├── README.md                # This file
-├── servers.json             # Server configurations (created automatically)
-├── example_flask_app.py     # Example Flask application
-└── templates/               # HTML templates (created automatically)
-    ├── login.html
-    ├── dashboard.html
-    ├── create_server.html
-    ├── add_server.html
-    └── file_manager.html
+#### Step 1: System Update
+```bash
+# Update system packages
+sudo apt update && sudo apt upgrade -y
+
+# Install required packages
+sudo apt install -y python3 python3-pip python3-venv git curl wget unzip tar gzip
+
+# Verify Python version
+python3 --version
 ```
 
-## Security Notes
+#### Step 2: Clone Flare Panel
+```bash
+# Navigate to root directory
+cd /root
 
-- Change the default `secret_key` in `app.py`
-- Change the default admin password
-- Consider adding more users with different roles
-- For production use, implement proper user management
+# Clone Flare Panel repository
+git clone https://github.com/ff-developer-ff/Flare-Panel.git
 
-## Troubleshooting
+# Navigate to Flare Panel directory
+cd Flare-Panel
 
-### Server won't start?
-- Check if the command is correct
-- Ensure the server application exists
-- Check if the port is already in use
-- Verify file paths in the command
-
-### Can't access from other devices?
-- Make sure the Flask app is running on `0.0.0.0:5000`
-- Check your firewall settings
-- Use your computer's local IP address
-
-### Permission errors?
-- Run the application with appropriate permissions
-- Some commands may require administrator privileges
-
-## Customization
-
-### Adding More Users
-Edit the `users` dictionary in `app.py`:
-```python
-users = {
-    'admin': {
-        'password': hashlib.sha256('admin123'.encode()).hexdigest(),
-        'role': 'admin'
-    },
-    'user1': {
-        'password': hashlib.sha256('password123'.encode()).hexdigest(),
-        'role': 'user'
-    }
-}
+# Check contents
+ls -la
 ```
 
-### Changing Port
-Edit the last line in `app.py`:
-```python
-app.run(host='0.0.0.0', port=YOUR_PORT, debug=True)
+#### Step 3: Python Environment Setup
+```bash
+# Create virtual environment
+python3 -m venv venv
+
+# Activate virtual environment
+source venv/bin/activate
+
+# Upgrade pip
+pip install --upgrade pip
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Install additional packages for VPS
+pip install gunicorn psutil
 ```
 
-## License
+#### Step 4: Create Directories
+```bash
+# Create necessary directories
+mkdir -p logs servers
 
-This project is open source and available under the MIT License. 
+# Set permissions
+chmod -R 755 logs/
+chmod -R 755 servers/
+chmod +x app.py
+```
+
+#### Step 5: Configuration
+```bash
+# Set environment variables
+export FLASK_ENV=production
+export SECRET_KEY="flare_panel_secure_key_2025_$(date +%s)"
+
+# Create environment file
+cat > .env << EOF
+FLASK_ENV=production
+SECRET_KEY=flare_panel_secure_key_2025_$(date +%s)
+PORT=5000
+HOST=0.0.0.0
+DEBUG=False
+EOF
+```
+
+#### Step 6: Test Installation
+```bash
+# Test Flare Panel
+python3 app.py
+
+# If successful, stop with Ctrl+C and continue to service setup
+```
+
+### Production Setup
+
+#### Step 1: Create System Service
+```bash
+# Create systemd service file
+sudo tee /etc/systemd/system/flare-panel.service > /dev/null << EOF
+[Unit]
+Description=Flare Panel Server Management
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/Flare-Panel
+Environment=PATH=/root/Flare-Panel/venv/bin
+Environment=FLASK_ENV=production
+Environment=SECRET_KEY=flare_panel_secure_key_2025_$(date +%s)
+ExecStart=/root/Flare-Panel/venv/bin/python app.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+EOF
+```
+
+#### Step 2: Enable and Start Service
+```bash
+# Reload systemd
+sudo systemctl daemon-reload
+
+# Enable service
+sudo systemctl enable flare-panel
+
+# Start service
+sudo systemctl start flare-panel
+
+# Check status
+sudo systemctl status flare-panel
+
+# View logs
+sudo journalctl -u flare-panel -f
+```
+
+#### Step 3: Firewall Configuration
+```bash
+# Allow Flare Panel port
+sudo ufw allow 5000
+
+# Allow SSH (if not already allowed)
+sudo ufw allow ssh
+
+# Enable firewall
+sudo ufw enable
+
+# Check firewall status
+sudo ufw status
+```
+
+---
+
+## ⚙️ Configuration
+
+### Environment Variables
+```bash
+# Required
+SECRET_KEY=your-secure-secret-key
+FLASK_ENV=production
+
+# Optional
+PORT=5000
+HOST=0.0.0.0
+DEBUG=False
+```
+
+### Default Login Credentials
+```
+Username: hxc
+Password: 123
+```
+
+**⚠️ Important**: Change these credentials after first login!
+
+### Directory Structure
+```
+Flare-Panel/
+├── app.py                 # Main application
+├── requirements.txt       # Python dependencies
+├── servers.json          # Server configurations
+├── logs/                 # Server logs
+├── servers/              # Server directories
+├── templates/            # HTML templates
+└── venv/                 # Virtual environment
+```
+
+---
+
+## 🎯 Usage
+
+### Accessing Flare Panel
+1. Open your browser
+2. Navigate to `http://your-vps-ip:5000`
+3. Login with default credentials
+4. Start managing your servers!
+
+### Creating Your First Server
+1. Click "Create Flare Panel Server"
+2. Choose server type (Flask, Gunicorn, Python HTTP)
+3. Set server name and port
+4. Click "Create Server"
+5. Go to Console to start the server
+
+### Managing Servers
+- **Dashboard**: Overview of all servers
+- **Console**: Real-time server control and logs
+- **Files**: File management for each server
+- **Start/Stop**: Control server status
+
+---
+
+## 🖥️ Server Types
+
+### 1. Flare Panel + Python
+- **Command**: `python3 app.py`
+- **Use Case**: Development and testing
+- **Features**: Hot reload, debug mode
+
+### 2. Flare Panel + Gunicorn
+- **Command**: `gunicorn --bind 0.0.0.0:port --workers 2 app:app`
+- **Use Case**: Production deployment
+- **Features**: Multi-worker, load balancing
+
+### 3. Flare Panel HTTP Server
+- **Command**: `python3 app.py`
+- **Use Case**: Lightweight applications
+- **Features**: Socket-based, minimal overhead
+
+---
+
+## 📁 File Management
+
+### Supported File Types
+- **Code Files**: `.py`, `.js`, `.html`, `.css`, `.txt`, `.json`, `.xml`, `.md`
+- **Scripts**: `.sh`, `.conf`, `.ini`, `.cfg`
+- **Archives**: `.zip`, `.tar.gz`, `.rar`
+
+### File Operations
+- **Upload**: Drag & drop or click to upload
+- **Download**: Direct file download
+- **Edit**: Built-in code editor with syntax highlighting
+- **Delete**: Secure file deletion with confirmation
+- **Rename**: In-place file renaming
+- **Move**: File and folder relocation
+- **Extract**: Archive extraction
+
+### Code Editor Features
+- **Syntax Highlighting**: Support for multiple languages
+- **Theme Toggle**: Light/dark theme switching
+- **Auto-save**: Automatic file saving
+- **Line Numbers**: Code line numbering
+- **Search/Replace**: Find and replace functionality
+
+---
+
+## 💻 Console Commands
+
+### Available Commands
+```bash
+# Python commands
+python3 script.py
+python3 --version
+pip3 install package
+pip3 list
+
+# System commands
+ls
+cd folder
+pwd
+echo "text"
+cat file.txt
+nano file.txt
+
+# Package management
+sudo apt update
+sudo apt install package
+sudo apt upgrade
+
+# Process management
+ps aux
+kill process_id
+top
+htop
+
+# Network commands
+netstat -tulpn
+curl url
+wget url
+ping host
+```
+
+### Command Features
+- **Real-time Execution**: Commands run immediately
+- **Output Capture**: All output captured and displayed
+- **Error Handling**: Comprehensive error reporting
+- **History Navigation**: Arrow keys for command history
+- **Auto-completion**: Tab completion for file paths
+
+---
+
+## 🔒 Security
+
+### Authentication
+- **Session-based**: Secure session management
+- **Password Protection**: Encrypted password storage
+- **Login Required**: All pages require authentication
+
+### File Security
+- **Path Validation**: Prevents directory traversal
+- **File Type Restrictions**: Limited to safe file types
+- **Size Limits**: File upload size restrictions
+
+### Network Security
+- **Firewall Ready**: Compatible with UFW firewall
+- **Port Management**: Configurable port settings
+- **HTTPS Ready**: Supports SSL/TLS configuration
+
+---
+
+## 🛠️ Troubleshooting
+
+### Common Issues
+
+#### 1. Server Won't Start
+```bash
+# Check Python version
+python3 --version
+
+# Install missing packages
+pip3 install -r requirements.txt
+
+# Check port availability
+netstat -tulpn | grep :5000
+```
+
+#### 2. Permission Errors
+```bash
+# Fix file permissions
+chmod +x app.py
+chmod -R 755 servers/
+chmod -R 755 logs/
+```
+
+#### 3. Module Not Found
+```bash
+# Install missing modules
+pip3 install protobuf requests flask gunicorn pycryptodome
+
+# Check Python path
+which python3
+python3 -c "import sys; print(sys.path)"
+```
+
+#### 4. Service Won't Start
+```bash
+# Check service status
+sudo systemctl status flare-panel
+
+# View service logs
+sudo journalctl -u flare-panel -f
+
+# Restart service
+sudo systemctl restart flare-panel
+```
+
+### Log Locations
+- **Application Logs**: `logs/` directory
+- **System Logs**: `/var/log/syslog`
+- **Service Logs**: `sudo journalctl -u flare-panel`
+
+### Performance Optimization
+```bash
+# Increase file descriptors
+ulimit -n 65536
+
+# Optimize Python
+export PYTHONOPTIMIZE=1
+
+# Use Gunicorn for production
+gunicorn --bind 0.0.0.0:5000 --workers 4 --worker-class gevent app:app
+```
+
+---
+
+## 📚 API Reference
+
+### Server Management Endpoints
+```
+GET  /api/server_status/<name>     # Get server status
+POST /api/send_command/<name>      # Execute command
+GET  /api/console_logs/<name>      # Get console logs
+```
+
+### File Management Endpoints
+```
+GET  /api/read_file               # Read file content
+POST /api/save_file               # Save file content
+POST /upload                      # Upload file
+GET  /delete_file                 # Delete file
+```
+
+### Authentication Endpoints
+```
+GET  /login                       # Login page
+POST /login                       # Login action
+GET  /logout                      # Logout
+```
+
+---
+
+## 🛠️ Management Commands
+
+### Service Management
+```bash
+# Start Flare Panel
+sudo systemctl start flare-panel
+
+# Stop Flare Panel
+sudo systemctl stop flare-panel
+
+# Restart Flare Panel
+sudo systemctl restart flare-panel
+
+# Check status
+sudo systemctl status flare-panel
+
+# View logs
+sudo journalctl -u flare-panel -f
+```
+
+### Update Flare Panel
+```bash
+# Navigate to Flare Panel directory
+cd /root/Flare-Panel
+
+# Stop service
+sudo systemctl stop flare-panel
+
+# Pull latest changes
+git pull origin main
+
+# Activate virtual environment
+source venv/bin/activate
+
+# Update dependencies
+pip install -r requirements.txt
+
+# Start service
+sudo systemctl start flare-panel
+```
+
+### Backup and Restore
+```bash
+# Backup Flare Panel
+cd /root
+tar -czf flare-panel-backup-$(date +%Y%m%d).tar.gz Flare-Panel/
+
+# Restore Flare Panel
+cd /root
+tar -xzf flare-panel-backup-YYYYMMDD.tar.gz
+```
+
+---
+
+## 📊 System Monitoring
+
+### Check Resource Usage
+```bash
+# Check CPU and memory usage
+htop
+
+# Check disk usage
+df -h
+
+# Check Flare Panel logs
+tail -f /root/Flare-Panel/logs/*.log
+```
+
+### Performance Optimization
+```bash
+# Increase file descriptors
+echo "* soft nofile 65536" >> /etc/security/limits.conf
+echo "* hard nofile 65536" >> /etc/security/limits.conf
+
+# Optimize Python
+export PYTHONOPTIMIZE=1
+```
+
+---
+
+## ✅ Quick Start Commands
+
+### One-Line Installation
+```bash
+# Complete installation in one go
+cd /root && git clone https://github.com/ff-developer-ff/Flare-Panel.git && cd Flare-Panel && python3 -m venv venv && source venv/bin/activate && pip install -r requirements.txt && mkdir -p logs servers && chmod +x app.py && python3 app.py
+```
+
+### Service Setup
+```bash
+# Create and start service
+sudo tee /etc/systemd/system/flare-panel.service > /dev/null << EOF
+[Unit]
+Description=Flare Panel Server Management
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/Flare-Panel
+Environment=PATH=/root/Flare-Panel/venv/bin
+ExecStart=/root/Flare-Panel/venv/bin/python app.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo systemctl daemon-reload && sudo systemctl enable flare-panel && sudo systemctl start flare-panel
+```
+
+### Firewall Setup
+```bash
+# Quick firewall setup
+sudo ufw allow 5000 && sudo ufw allow ssh && sudo ufw enable
+```
+
+---
+
+## 🎉 Installation Complete!
+
+Your Flare Panel is now installed and running! 
+
+**Access URL**: `http://your-vps-ip:5000`
+**Default Login**: `hxc` / `123`
+
+**Remember to change the default password after first login!**
+
+---
+
+## 📞 Support
+
+### Getting Help
+- **Documentation**: Check this guide first
+- **Issues**: Create GitHub issue for bugs
+- **Discussions**: Use GitHub discussions for questions
+
+### Community
+- **GitHub**: [https://github.com/ff-developer-ff/Flare-Panel](https://github.com/ff-developer-ff/Flare-Panel)
+- **Repository**: ff-developer-ff/Flare-Panel
+
+---
+
+**🔥 Flare Panel** - Advanced Server Management Platform
+
+*Built with ❤️ for the Python community*
+
+---
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+---
+
+*Last updated: January 2025* 
