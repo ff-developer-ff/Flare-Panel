@@ -1069,8 +1069,17 @@ def upload_file():
             return redirect(url_for('file_manager', path=path))
         
         try:
+            # Ensure the directory exists
+            upload_dir = os.path.dirname(upload_path) if os.path.dirname(upload_path) else '.'
+            if upload_dir != '.' and not os.path.exists(upload_dir):
+                os.makedirs(upload_dir, exist_ok=True)
+            
             file.save(upload_path)
-            flash(f'File "{filename}" uploaded successfully', 'success')
+            flash(f'File "{filename}" uploaded successfully to {upload_path}', 'success')
+        except PermissionError:
+            flash('Permission denied uploading file - Check directory permissions', 'error')
+        except OSError as e:
+            flash(f'OS Error uploading file: {str(e)}', 'error')
         except Exception as e:
             flash(f'Error uploading file: {str(e)}', 'error')
     
@@ -1094,13 +1103,25 @@ def root_upload_file():
     
     if file:
         filename = secure_filename(file.filename)
-        upload_path = os.path.join(path, filename)
+        
+        # Handle path properly for root file manager
+        if path == '.':
+            upload_path = filename
+        else:
+            upload_path = os.path.join(path, filename)
         
         try:
+            # Ensure the directory exists
+            upload_dir = os.path.dirname(upload_path) if os.path.dirname(upload_path) else '.'
+            if upload_dir != '.' and not os.path.exists(upload_dir):
+                os.makedirs(upload_dir, exist_ok=True)
+            
             file.save(upload_path)
-            flash(f'File "{filename}" uploaded successfully', 'success')
+            flash(f'File "{filename}" uploaded successfully to {upload_path}', 'success')
         except PermissionError:
-            flash('Permission denied uploading file', 'error')
+            flash('Permission denied uploading file - Check directory permissions', 'error')
+        except OSError as e:
+            flash(f'OS Error uploading file: {str(e)}', 'error')
         except Exception as e:
             flash(f'Error uploading file: {str(e)}', 'error')
     
@@ -1454,9 +1475,13 @@ def server_upload_file(name):
         server_dir = os.path.join('servers', name)
         upload_path = os.path.join(server_dir, path, filename)
         
+        # Improved path validation - normalize both paths for comparison
+        server_dir_abs = os.path.abspath(server_dir)
+        upload_path_abs = os.path.abspath(upload_path)
+        
         # Security: prevent directory traversal
-        if '..' in upload_path or not upload_path.startswith(os.path.abspath(server_dir)):
-            flash('Invalid path', 'error')
+        if '..' in upload_path or not upload_path_abs.startswith(server_dir_abs):
+            flash('Invalid path - Upload location outside server directory', 'error')
             return redirect(url_for('server_file_manager', name=name, path=path))
         
         try:
@@ -1491,8 +1516,22 @@ def server_create_folder(name):
     try:
         server_dir = os.path.join('servers', name)
         new_folder = os.path.join(server_dir, path, folder_name)
-        os.makedirs(new_folder, exist_ok=True)
+        
+        # Improved path validation
+        server_dir_abs = os.path.abspath(server_dir)
+        new_folder_abs = os.path.abspath(new_folder)
+        
+        # Check if the new folder would be within the server directory
+        if not new_folder_abs.startswith(server_dir_abs):
+            flash('Access denied - Folder location outside server directory', 'error')
+            return redirect(url_for('server_file_manager', name=name, path=path))
+        
+        os.makedirs(new_folder_abs, exist_ok=True)
         flash(f'Folder "{folder_name}" created successfully', 'success')
+    except PermissionError:
+        flash('Permission denied - Cannot create folder', 'error')
+    except OSError as e:
+        flash(f'OS Error creating folder: {str(e)}', 'error')
     except Exception as e:
         flash(f'Error creating folder: {str(e)}', 'error')
     
@@ -1521,17 +1560,31 @@ def server_delete_file(name):
         server_dir = os.path.join('servers', name)
         full_path = os.path.join(server_dir, path)
         
-        if not full_path.startswith(os.path.abspath(server_dir)):
-            flash('Access denied', 'error')
+        # Improved path validation - normalize both paths for comparison
+        server_dir_abs = os.path.abspath(server_dir)
+        full_path_abs = os.path.abspath(full_path)
+        
+        # Check if the file is within the server directory
+        if not full_path_abs.startswith(server_dir_abs):
+            flash('Access denied - Path outside server directory', 'error')
             return redirect(url_for('server_file_manager', name=name))
         
-        if os.path.isdir(full_path):
+        # Check if file/directory exists
+        if not os.path.exists(full_path_abs):
+            flash('File or directory not found', 'error')
+            return redirect(url_for('server_file_manager', name=name))
+        
+        if os.path.isdir(full_path_abs):
             import shutil
-            shutil.rmtree(full_path)
+            shutil.rmtree(full_path_abs)
             flash('Folder deleted successfully', 'success')
         else:
-            os.remove(full_path)
+            os.remove(full_path_abs)
             flash('File deleted successfully', 'success')
+    except PermissionError:
+        flash('Permission denied - Cannot delete file/folder', 'error')
+    except OSError as e:
+        flash(f'OS Error deleting: {str(e)}', 'error')
     except Exception as e:
         flash(f'Error deleting: {str(e)}', 'error')
     
@@ -1564,12 +1617,32 @@ def server_rename_file(name):
         old_full_path = os.path.join(server_dir, old_path)
         new_full_path = os.path.join(server_dir, os.path.dirname(old_path), new_name)
         
-        if not old_full_path.startswith(os.path.abspath(server_dir)):
-            flash('Access denied', 'error')
+        # Improved path validation - normalize both paths for comparison
+        server_dir_abs = os.path.abspath(server_dir)
+        old_full_path_abs = os.path.abspath(old_full_path)
+        new_full_path_abs = os.path.abspath(new_full_path)
+        
+        # Check if the old file is within the server directory
+        if not old_full_path_abs.startswith(server_dir_abs):
+            flash('Access denied - Path outside server directory', 'error')
             return redirect(url_for('server_file_manager', name=name, path=current_path))
         
-        os.rename(old_full_path, new_full_path)
+        # Check if the new path would be within the server directory
+        if not new_full_path_abs.startswith(server_dir_abs):
+            flash('Access denied - New path outside server directory', 'error')
+            return redirect(url_for('server_file_manager', name=name, path=current_path))
+        
+        # Check if old file exists
+        if not os.path.exists(old_full_path_abs):
+            flash('File not found', 'error')
+            return redirect(url_for('server_file_manager', name=name, path=current_path))
+        
+        os.rename(old_full_path_abs, new_full_path_abs)
         flash('File renamed successfully', 'success')
+    except PermissionError:
+        flash('Permission denied - Cannot rename file', 'error')
+    except OSError as e:
+        flash(f'OS Error renaming: {str(e)}', 'error')
     except Exception as e:
         flash(f'Error renaming file: {str(e)}', 'error')
     
@@ -1629,55 +1702,84 @@ def system_info():
         return jsonify({'error': 'Unauthorized'}), 401
     
     try:
-        import psutil
         import platform
         
-        # CPU Info
-        cpu_percent = psutil.cpu_percent(interval=1)
-        cpu_count = psutil.cpu_count()
-        
-        # Memory Info
-        memory = psutil.virtual_memory()
-        memory_total = memory.total
-        memory_used = memory.used
-        memory_percent = memory.percent
-        
-        # Disk Info
-        disk = psutil.disk_usage('/')
-        disk_total = disk.total
-        disk_used = disk.used
-        disk_percent = disk.percent
-        
-        # System Info
+        # Basic system info (always available)
         system_info = {
             'platform': platform.system(),
             'platform_version': platform.version(),
             'architecture': platform.machine(),
             'hostname': platform.node(),
             'python_version': platform.python_version(),
-            'cpu': {
-                'percent': cpu_percent,
-                'count': cpu_count
-            },
-            'memory': {
-                'total': memory_total,
-                'used': memory_used,
-                'percent': memory_percent,
-                'total_gb': round(memory_total / (1024**3), 2),
-                'used_gb': round(memory_used / (1024**3), 2)
-            },
-            'disk': {
-                'total': disk_total,
-                'used': disk_used,
-                'percent': disk_percent,
-                'total_gb': round(disk_total / (1024**3), 2),
-                'used_gb': round(disk_used / (1024**3), 2)
-            }
         }
         
+        # Try to get detailed info with psutil
+        try:
+            import psutil
+            
+            # CPU Info
+            cpu_percent = psutil.cpu_percent(interval=1)
+            cpu_count = psutil.cpu_count()
+            
+            # Memory Info
+            memory = psutil.virtual_memory()
+            memory_total = memory.total
+            memory_used = memory.used
+            memory_percent = memory.percent
+            
+            # Disk Info
+            disk = psutil.disk_usage('/')
+            disk_total = disk.total
+            disk_used = disk.used
+            disk_percent = disk.percent
+            
+            # Add detailed info
+            system_info.update({
+                'cpu': {
+                    'percent': cpu_percent,
+                    'count': cpu_count
+                },
+                'memory': {
+                    'total': memory_total,
+                    'used': memory_used,
+                    'percent': memory_percent,
+                    'total_gb': round(memory_total / (1024**3), 2),
+                    'used_gb': round(memory_used / (1024**3), 2)
+                },
+                'disk': {
+                    'total': disk_total,
+                    'used': disk_used,
+                    'percent': disk_percent,
+                    'total_gb': round(disk_total / (1024**3), 2),
+                    'used_gb': round(disk_used / (1024**3), 2)
+                }
+            })
+            
+        except ImportError:
+            # psutil not available, provide basic info
+            system_info.update({
+                'cpu': {
+                    'percent': 0,
+                    'count': 'Unknown'
+                },
+                'memory': {
+                    'total': 0,
+                    'used': 0,
+                    'percent': 0,
+                    'total_gb': 0,
+                    'used_gb': 0
+                },
+                'disk': {
+                    'total': 0,
+                    'used': 0,
+                    'percent': 0,
+                    'total_gb': 0,
+                    'used_gb': 0
+                },
+                'psutil_available': False
+            })
+        
         return jsonify(system_info)
-    except ImportError:
-        return jsonify({'error': 'psutil not installed'}), 500
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -1709,7 +1811,11 @@ def get_processes():
         
         return jsonify({'processes': processes[:50]})  # Return top 50 processes
     except ImportError:
-        return jsonify({'error': 'psutil not installed'}), 500
+        return jsonify({
+            'processes': [],
+            'error': 'psutil not installed - Install with: pip install psutil',
+            'psutil_available': False
+        })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -1735,9 +1841,9 @@ def kill_process(pid):
     except psutil.NoSuchProcess:
         return jsonify({'error': 'Process not found'}), 404
     except psutil.AccessDenied:
-        return jsonify({'error': 'Access denied'}), 403
+        return jsonify({'error': 'Access denied - Cannot kill process'}), 403
     except ImportError:
-        return jsonify({'error': 'psutil not installed'}), 500
+        return jsonify({'error': 'psutil not installed - Install with: pip install psutil'}), 500
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -1780,7 +1886,15 @@ def network_info():
         
         return jsonify(network_info)
     except ImportError:
-        return jsonify({'error': 'psutil not installed'}), 500
+        return jsonify({
+            'error': 'psutil not installed - Install with: pip install psutil',
+            'psutil_available': False,
+            'bytes_sent': 0,
+            'bytes_recv': 0,
+            'packets_sent': 0,
+            'packets_recv': 0,
+            'interfaces': {}
+        })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -1931,6 +2045,37 @@ def server_logs(name):
                     })
         
         return jsonify({'log_files': log_files})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# Debug Path API (for troubleshooting)
+@app.route('/api/debug_path/<name>')
+def debug_path(name):
+    if 'username' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    if name not in server_manager.servers:
+        return jsonify({'error': 'Server not found'}), 404
+    
+    path = request.args.get('path', '.')
+    
+    try:
+        server_dir = os.path.join('servers', name)
+        full_path = os.path.join(server_dir, path)
+        
+        server_dir_abs = os.path.abspath(server_dir)
+        full_path_abs = os.path.abspath(full_path)
+        
+        return jsonify({
+            'server_dir': server_dir,
+            'server_dir_abs': server_dir_abs,
+            'path': path,
+            'full_path': full_path,
+            'full_path_abs': full_path_abs,
+            'is_within_server': full_path_abs.startswith(server_dir_abs),
+            'exists': os.path.exists(full_path_abs),
+            'is_dir': os.path.isdir(full_path_abs) if os.path.exists(full_path_abs) else None
+        })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

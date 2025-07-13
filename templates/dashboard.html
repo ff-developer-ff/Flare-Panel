@@ -379,13 +379,27 @@
                         return;
                     }
                     
-                    const html = `
+                    let html = `
                         <p><strong>Platform:</strong> ${data.platform} ${data.platform_version}</p>
                         <p><strong>Architecture:</strong> ${data.architecture}</p>
                         <p><strong>Hostname:</strong> ${data.hostname}</p>
                         <p><strong>Python Version:</strong> ${data.python_version}</p>
-                        <p><strong>CPU Cores:</strong> ${data.cpu.count}</p>
                     `;
+                    
+                    if (data.cpu && data.cpu.count !== 'Unknown') {
+                        html += '<p><strong>CPU Cores:</strong> ' + data.cpu.count + '</p>';
+                    } else {
+                        html += '<p><strong>CPU Cores:</strong> <span class="text-warning">Install psutil for detailed info</span></p>';
+                    }
+                    
+                    if (data.psutil_available === false) {
+                        html += '<div class="alert alert-warning mt-2">' +
+                            '<small><i class="fas fa-exclamation-triangle me-1"></i>' +
+                            'Install psutil for detailed system monitoring: <code>pip install psutil</code>' +
+                            '</small>' +
+                            '</div>';
+                    }
+                    
                     document.getElementById('systemInfo').innerHTML = html;
                 })
                 .catch(error => {
@@ -398,34 +412,55 @@
                 .then(response => response.json())
                 .then(data => {
                     if (data.error) {
-                        document.getElementById('resourceUsage').innerHTML = `<p class="text-danger">Error: ${data.error}</p>`;
+                        document.getElementById('resourceUsage').innerHTML = '<p class="text-danger">Error: ' + data.error + '</p>';
                         return;
                     }
                     
-                    const html = `
-                        <div class="mb-3">
-                            <label class="form-label">CPU Usage: ${data.cpu.percent}%</label>
-                            <div class="progress">
-                                <div class="progress-bar bg-info" style="width: ${data.cpu.percent}%"></div>
-                            </div>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Memory Usage: ${data.memory.percent}% (${data.memory.used_gb}GB / ${data.memory.total_gb}GB)</label>
-                            <div class="progress">
-                                <div class="progress-bar bg-warning" style="width: ${data.memory.percent}%"></div>
-                            </div>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Disk Usage: ${data.disk.percent}% (${data.disk.used_gb}GB / ${data.disk.total_gb}GB)</label>
-                            <div class="progress">
-                                <div class="progress-bar bg-success" style="width: ${data.disk.percent}%"></div>
-                            </div>
-                        </div>
-                    `;
+                    let html = '';
+                    
+                    if (data.cpu && data.cpu.percent > 0) {
+                        html += '<div class="mb-3">' +
+                            '<label class="form-label">CPU Usage: ' + data.cpu.percent + '%</label>' +
+                            '<div class="progress">' +
+                            '<div class="progress-bar bg-info" style="width: ' + data.cpu.percent + '%"></div>' +
+                            '</div>' +
+                            '</div>';
+                    } else {
+                        html += '<div class="mb-3">' +
+                            '<label class="form-label">CPU Usage: <span class="text-warning">Install psutil for detailed info</span></label>' +
+                            '</div>';
+                    }
+                    
+                    if (data.memory && data.memory.percent > 0) {
+                        html += '<div class="mb-3">' +
+                            '<label class="form-label">Memory Usage: ' + data.memory.percent + '% (' + data.memory.used_gb + 'GB / ' + data.memory.total_gb + 'GB)</label>' +
+                            '<div class="progress">' +
+                            '<div class="progress-bar bg-warning" style="width: ' + data.memory.percent + '%"></div>' +
+                            '</div>' +
+                            '</div>';
+                    } else {
+                        html += '<div class="mb-3">' +
+                            '<label class="form-label">Memory Usage: <span class="text-warning">Install psutil for detailed info</span></label>' +
+                            '</div>';
+                    }
+                    
+                    if (data.disk && data.disk.percent > 0) {
+                        html += '<div class="mb-3">' +
+                            '<label class="form-label">Disk Usage: ' + data.disk.percent + '% (' + data.disk.used_gb + 'GB / ' + data.disk.total_gb + 'GB)</label>' +
+                            '<div class="progress">' +
+                            '<div class="progress-bar bg-success" style="width: ' + data.disk.percent + '%"></div>' +
+                            '</div>' +
+                            '</div>';
+                    } else {
+                        html += '<div class="mb-3">' +
+                            '<label class="form-label">Disk Usage: <span class="text-warning">Install psutil for detailed info</span></label>' +
+                            '</div>';
+                    }
+                    
                     document.getElementById('resourceUsage').innerHTML = html;
                 })
                 .catch(error => {
-                    document.getElementById('resourceUsage').innerHTML = `<p class="text-danger">Error loading resource usage</p>`;
+                    document.getElementById('resourceUsage').innerHTML = '<p class="text-danger">Error loading resource usage</p>';
                 });
         }
 
@@ -434,31 +469,38 @@
                 .then(response => response.json())
                 .then(data => {
                     if (data.error) {
-                        document.getElementById('networkInfo').innerHTML = `<p class="text-danger">Error: ${data.error}</p>`;
+                        document.getElementById('networkInfo').innerHTML = '<p class="text-danger">Error: ' + data.error + '</p>';
                         return;
                     }
                     
                     let interfacesHtml = '';
-                    for (const [interface, addresses] of Object.entries(data.interfaces)) {
-                        interfacesHtml += `<p><strong>${interface}:</strong></p>`;
-                        addresses.forEach(addr => {
-                            interfacesHtml += `<small class="text-muted">${addr.type}: ${addr.address}</small><br>`;
-                        });
+                    if (data.interfaces && Object.keys(data.interfaces).length > 0) {
+                        for (const [interface, addresses] of Object.entries(data.interfaces)) {
+                            interfacesHtml += '<p><strong>' + interface + ':</strong></p>';
+                            addresses.forEach(addr => {
+                                interfacesHtml += '<small class="text-muted">' + addr.type + ': ' + addr.address + '</small><br>';
+                            });
+                        }
+                    } else {
+                        interfacesHtml = '<p class="text-warning">No network interface data available</p>';
                     }
                     
-                    const html = `
-                        <p><strong>Bytes Sent:</strong> ${(data.bytes_sent / (1024*1024)).toFixed(2)} MB</p>
-                        <p><strong>Bytes Received:</strong> ${(data.bytes_recv / (1024*1024)).toFixed(2)} MB</p>
-                        <p><strong>Packets Sent:</strong> ${data.packets_sent.toLocaleString()}</p>
-                        <p><strong>Packets Received:</strong> ${data.packets_recv.toLocaleString()}</p>
-                        <hr>
-                        <h6>Network Interfaces:</h6>
-                        ${interfacesHtml}
-                    `;
+                    let html = '';
+                    if (data.bytes_sent > 0) {
+                        html = '<p><strong>Bytes Sent:</strong> ' + (data.bytes_sent / (1024*1024)).toFixed(2) + ' MB</p>' +
+                               '<p><strong>Bytes Received:</strong> ' + (data.bytes_recv / (1024*1024)).toFixed(2) + ' MB</p>' +
+                               '<p><strong>Packets Sent:</strong> ' + data.packets_sent.toLocaleString() + '</p>' +
+                               '<p><strong>Packets Received:</strong> ' + data.packets_recv.toLocaleString() + '</p>' +
+                               '<hr><h6>Network Interfaces:</h6>' + interfacesHtml;
+                    } else {
+                        html = '<p class="text-warning">Install psutil for detailed network information</p>' +
+                               '<p><code>pip install psutil</code></p>';
+                    }
+                    
                     document.getElementById('networkInfo').innerHTML = html;
                 })
                 .catch(error => {
-                    document.getElementById('networkInfo').innerHTML = `<p class="text-danger">Error loading network info</p>`;
+                    document.getElementById('networkInfo').innerHTML = '<p class="text-danger">Error loading network info</p>';
                 });
         }
 
@@ -467,35 +509,37 @@
                 .then(response => response.json())
                 .then(data => {
                     if (data.error) {
-                        document.getElementById('processList').innerHTML = `<p class="text-danger">Error: ${data.error}</p>`;
+                        document.getElementById('processList').innerHTML = '<p class="text-danger">Error: ' + data.error + '</p>';
                         return;
                     }
                     
-                    let processesHtml = '<div class="table-responsive"><table class="table table-sm">';
-                    processesHtml += '<thead><tr><th>PID</th><th>Name</th><th>CPU%</th><th>Memory%</th><th>Status</th><th>Action</th></tr></thead><tbody>';
-                    
-                    data.processes.forEach(proc => {
-                        processesHtml += `
-                            <tr>
-                                <td>${proc.pid}</td>
-                                <td>${proc.name}</td>
-                                <td>${proc.cpu_percent}%</td>
-                                <td>${proc.memory_percent}%</td>
-                                <td><span class="badge bg-${proc.status === 'running' ? 'success' : 'secondary'}">${proc.status}</span></td>
-                                <td>
-                                    <button class="btn btn-sm btn-outline-danger" onclick="killProcess(${proc.pid})" title="Kill Process">
-                                        <i class="fas fa-times"></i>
-                                    </button>
-                                </td>
-                            </tr>
-                        `;
-                    });
-                    
-                    processesHtml += '</tbody></table></div>';
-                    document.getElementById('processList').innerHTML = processesHtml;
+                    if (data.processes && data.processes.length > 0) {
+                        let processesHtml = '<div class="table-responsive"><table class="table table-sm">';
+                        processesHtml += '<thead><tr><th>PID</th><th>Name</th><th>CPU%</th><th>Memory%</th><th>Status</th><th>Action</th></tr></thead><tbody>';
+                        
+                        data.processes.forEach(proc => {
+                            processesHtml += '<tr>' +
+                                '<td>' + proc.pid + '</td>' +
+                                '<td>' + proc.name + '</td>' +
+                                '<td>' + proc.cpu_percent + '%</td>' +
+                                '<td>' + proc.memory_percent + '%</td>' +
+                                '<td><span class="badge bg-' + (proc.status === 'running' ? 'success' : 'secondary') + '">' + proc.status + '</span></td>' +
+                                '<td>' +
+                                '<button class="btn btn-sm btn-outline-danger" onclick="killProcess(' + proc.pid + ')" title="Kill Process">' +
+                                '<i class="fas fa-times"></i>' +
+                                '</button>' +
+                                '</td>' +
+                                '</tr>';
+                        });
+                        
+                        processesHtml += '</tbody></table></div>';
+                        document.getElementById('processList').innerHTML = processesHtml;
+                    } else {
+                        document.getElementById('processList').innerHTML = '<p class="text-warning">No process data available. Install psutil for detailed process information.</p>';
+                    }
                 })
                 .catch(error => {
-                    document.getElementById('processList').innerHTML = `<p class="text-danger">Error loading processes</p>`;
+                    document.getElementById('processList').innerHTML = '<p class="text-danger">Error loading processes</p>';
                 });
         }
 
