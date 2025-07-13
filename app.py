@@ -1047,8 +1047,8 @@ if __name__ == '__main__':
     print("🚀 Server Manager starting on Ubuntu VPS...")
     print("Default login: hxc / 123")
     print(f"Local IP: {get_local_ip()}")
-    print("Access the web interface at: http://localhost:5010")
-    print("For external access: http://YOUR_VPS_IP:5010")
+    print("Access the web interface at: http://localhost:8080")
+    print("For external access: http://YOUR_VPS_IP:8080")
     
     # Run on all interfaces for VPS access
-    app.run(host='0.0.0.0', port=5010, debug=False, threaded=True)
+    app.run(host='0.0.0.0', port=8080, debug=False, threaded=True)
