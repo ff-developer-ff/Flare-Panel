@@ -887,6 +887,69 @@ def file_manager(path='.'):
         flash(f'Error accessing directory: {str(e)}', 'error')
         return redirect(url_for('file_manager'))
 
+# Root File Manager Routes - Full System Access
+@app.route('/root_file_manager')
+@app.route('/root_file_manager/<path:path>')
+def root_file_manager(path='.'):
+    if 'username' not in session:
+        return redirect(url_for('login'))
+    
+    # Get absolute path - allow full system access
+    if path == '.':
+        current_path = os.path.abspath('.')
+    else:
+        current_path = os.path.abspath(path)
+    
+    # Handle actions
+    action = request.args.get('action')
+    if action == 'download' and os.path.isfile(current_path):
+        return send_file(current_path, as_attachment=True)
+    
+    # Get directory contents
+    try:
+        if os.path.isdir(current_path):
+            files = []
+            for item in os.listdir(current_path):
+                item_path = os.path.join(current_path, item)
+                
+                if os.path.isdir(item_path):
+                    files.append({
+                        'name': item,
+                        'path': item_path,
+                        'is_dir': True,
+                        'size': ''
+                    })
+                else:
+                    try:
+                        size = os.path.getsize(item_path)
+                        files.append({
+                            'name': item,
+                            'path': item_path,
+                            'is_dir': False,
+                            'size': f"{size:,} bytes"
+                        })
+                    except OSError:
+                        # Skip files we can't access
+                        continue
+            
+            # Sort: directories first, then files
+            files.sort(key=lambda x: (not x['is_dir'], x['name'].lower()))
+            
+            return render_template('root_file_manager.html',
+                                 username=session['username'],
+                                 current_path=current_path,
+                                 files=files)
+        else:
+            flash('Not a directory', 'error')
+            return redirect(url_for('root_file_manager'))
+            
+    except PermissionError:
+        flash('Permission denied accessing directory', 'error')
+        return redirect(url_for('root_file_manager'))
+    except Exception as e:
+        flash(f'Error accessing directory: {str(e)}', 'error')
+        return redirect(url_for('root_file_manager'))
+
 @app.route('/api/file_action', methods=['POST'])
 def file_action():
     if 'username' not in session:
@@ -932,6 +995,53 @@ def file_action():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/root_file_action', methods=['POST'])
+def root_file_action():
+    if 'username' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    data = request.get_json()
+    action = data.get('action')
+    path = data.get('path')
+    
+    if not path:
+        return jsonify({'error': 'Path required'}), 400
+    
+    try:
+        if action == 'delete':
+            if os.path.isdir(path):
+                import shutil
+                shutil.rmtree(path)
+            else:
+                os.remove(path)
+            return jsonify({'success': True})
+        
+        elif action == 'rename':
+            new_name = data.get('new_name')
+            if not new_name:
+                return jsonify({'error': 'New name required'}), 400
+            
+            new_path = os.path.join(os.path.dirname(path), new_name)
+            os.rename(path, new_path)
+            return jsonify({'success': True})
+        
+        elif action == 'create_folder':
+            folder_name = data.get('folder_name')
+            if not folder_name:
+                return jsonify({'error': 'Folder name required'}), 400
+            
+            new_folder = os.path.join(path, folder_name)
+            os.makedirs(new_folder, exist_ok=True)
+            return jsonify({'success': True})
+        
+        else:
+            return jsonify({'error': 'Invalid action'}), 400
+            
+    except PermissionError:
+        return jsonify({'error': 'Permission denied'}), 403
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 # Additional File Manager Routes
 @app.route('/upload_file', methods=['POST'])
 def upload_file():
@@ -966,6 +1076,36 @@ def upload_file():
     
     return redirect(url_for('file_manager', path=path))
 
+@app.route('/root_upload_file', methods=['POST'])
+def root_upload_file():
+    if 'username' not in session:
+        return redirect(url_for('login'))
+    
+    if 'file' not in request.files:
+        flash('No file selected', 'error')
+        return redirect(url_for('root_file_manager'))
+    
+    file = request.files['file']
+    path = request.form.get('path', '.')
+    
+    if file.filename == '':
+        flash('No file selected', 'error')
+        return redirect(url_for('root_file_manager', path=path))
+    
+    if file:
+        filename = secure_filename(file.filename)
+        upload_path = os.path.join(path, filename)
+        
+        try:
+            file.save(upload_path)
+            flash(f'File "{filename}" uploaded successfully', 'success')
+        except PermissionError:
+            flash('Permission denied uploading file', 'error')
+        except Exception as e:
+            flash(f'Error uploading file: {str(e)}', 'error')
+    
+    return redirect(url_for('root_file_manager', path=path))
+
 @app.route('/create_folder', methods=['POST'])
 def create_folder():
     if 'username' not in session:
@@ -991,6 +1131,29 @@ def create_folder():
         flash(f'Error creating folder: {str(e)}', 'error')
     
     return redirect(url_for('file_manager', path=path))
+
+@app.route('/root_create_folder', methods=['POST'])
+def root_create_folder():
+    if 'username' not in session:
+        return redirect(url_for('login'))
+    
+    folder_name = request.form.get('folder_name')
+    path = request.form.get('path', '.')
+    
+    if not folder_name:
+        flash('Folder name required', 'error')
+        return redirect(url_for('root_file_manager', path=path))
+    
+    try:
+        new_folder = os.path.join(path, folder_name)
+        os.makedirs(new_folder, exist_ok=True)
+        flash(f'Folder "{folder_name}" created successfully', 'success')
+    except PermissionError:
+        flash('Permission denied creating folder', 'error')
+    except Exception as e:
+        flash(f'Error creating folder: {str(e)}', 'error')
+    
+    return redirect(url_for('root_file_manager', path=path))
 
 @app.route('/move_file', methods=['POST'])
 def move_file():
@@ -1046,6 +1209,31 @@ def delete_file():
         flash(f'Error deleting: {str(e)}', 'error')
     
     return redirect(url_for('file_manager'))
+
+@app.route('/root_delete_file')
+def root_delete_file():
+    if 'username' not in session:
+        return redirect(url_for('login'))
+    
+    path = request.args.get('path')
+    if not path:
+        flash('Path required', 'error')
+        return redirect(url_for('root_file_manager'))
+    
+    try:
+        if os.path.isdir(path):
+            import shutil
+            shutil.rmtree(path)
+            flash('Folder deleted successfully', 'success')
+        else:
+            os.remove(path)
+            flash('File deleted successfully', 'success')
+    except PermissionError:
+        flash('Permission denied deleting file/folder', 'error')
+    except Exception as e:
+        flash(f'Error deleting: {str(e)}', 'error')
+    
+    return redirect(url_for('root_file_manager'))
 
 @app.route('/rename_file', methods=['POST'])
 def rename_file():
@@ -1107,6 +1295,63 @@ def unarchive_file():
         flash(f'Error extracting archive: {str(e)}', 'error')
     
     return redirect(url_for('file_manager', path=current_path))
+
+@app.route('/server_unarchive_file/<name>')
+def server_unarchive_file(name):
+    if 'username' not in session:
+        return redirect(url_for('login'))
+    
+    if name not in server_manager.servers:
+        flash('Server not found', 'error')
+        return redirect(url_for('dashboard'))
+    
+    path = request.args.get('path')
+    current_path = request.args.get('current_path', '.')
+    
+    if not path:
+        flash('Path required', 'error')
+        return redirect(url_for('server_file_manager', name=name, path=current_path))
+    
+    # Security: prevent directory traversal
+    if '..' in path or path.startswith('/'):
+        flash('Invalid path', 'error')
+        return redirect(url_for('server_file_manager', name=name, path=current_path))
+    
+    try:
+        server_dir = os.path.join('servers', name)
+        full_path = os.path.join(server_dir, path)
+        
+        if not full_path.startswith(os.path.abspath(server_dir)):
+            flash('Access denied', 'error')
+            return redirect(url_for('server_file_manager', name=name, path=current_path))
+        
+        if path.endswith('.zip'):
+            with zipfile.ZipFile(full_path, 'r') as zip_ref:
+                zip_ref.extractall(os.path.dirname(full_path))
+            flash('Archive extracted successfully', 'success')
+        elif path.endswith(('.tar.gz', '.tgz')):
+            import tarfile
+            with tarfile.open(full_path, 'r:gz') as tar_ref:
+                tar_ref.extractall(os.path.dirname(full_path))
+            flash('Archive extracted successfully', 'success')
+        elif path.endswith('.rar'):
+            # For RAR files, we'll use unrar if available, otherwise show a message
+            try:
+                import subprocess
+                result = subprocess.run(['unrar', 'x', full_path, os.path.dirname(full_path)], 
+                                      capture_output=True, text=True, timeout=30)
+                if result.returncode == 0:
+                    flash('RAR archive extracted successfully', 'success')
+                else:
+                    flash('Failed to extract RAR file. Make sure unrar is installed.', 'error')
+            except FileNotFoundError:
+                flash('RAR extraction requires unrar to be installed on the system', 'error')
+        else:
+            flash('Unsupported archive format. Supported: .zip, .tar.gz, .tgz, .rar', 'error')
+    except Exception as e:
+        flash(f'Error extracting archive: {str(e)}', 'error')
+    
+    return redirect(url_for('server_file_manager', name=name, path=current_path))
 
 # Server File Manager Routes
 @app.route('/server_file_manager/<name>')
@@ -1374,6 +1619,351 @@ def save_file_api():
         with open(path, 'w', encoding='utf-8') as f:
             f.write(content)
         return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# System Information API
+@app.route('/api/system_info')
+def system_info():
+    if 'username' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    try:
+        import psutil
+        import platform
+        
+        # CPU Info
+        cpu_percent = psutil.cpu_percent(interval=1)
+        cpu_count = psutil.cpu_count()
+        
+        # Memory Info
+        memory = psutil.virtual_memory()
+        memory_total = memory.total
+        memory_used = memory.used
+        memory_percent = memory.percent
+        
+        # Disk Info
+        disk = psutil.disk_usage('/')
+        disk_total = disk.total
+        disk_used = disk.used
+        disk_percent = disk.percent
+        
+        # System Info
+        system_info = {
+            'platform': platform.system(),
+            'platform_version': platform.version(),
+            'architecture': platform.machine(),
+            'hostname': platform.node(),
+            'python_version': platform.python_version(),
+            'cpu': {
+                'percent': cpu_percent,
+                'count': cpu_count
+            },
+            'memory': {
+                'total': memory_total,
+                'used': memory_used,
+                'percent': memory_percent,
+                'total_gb': round(memory_total / (1024**3), 2),
+                'used_gb': round(memory_used / (1024**3), 2)
+            },
+            'disk': {
+                'total': disk_total,
+                'used': disk_used,
+                'percent': disk_percent,
+                'total_gb': round(disk_total / (1024**3), 2),
+                'used_gb': round(disk_used / (1024**3), 2)
+            }
+        }
+        
+        return jsonify(system_info)
+    except ImportError:
+        return jsonify({'error': 'psutil not installed'}), 500
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# Process Management API
+@app.route('/api/processes')
+def get_processes():
+    if 'username' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    try:
+        import psutil
+        
+        processes = []
+        for proc in psutil.process_iter(['pid', 'name', 'cpu_percent', 'memory_percent', 'status']):
+            try:
+                proc_info = proc.info
+                processes.append({
+                    'pid': proc_info['pid'],
+                    'name': proc_info['name'],
+                    'cpu_percent': round(proc_info['cpu_percent'], 1),
+                    'memory_percent': round(proc_info['memory_percent'], 1),
+                    'status': proc_info['status']
+                })
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                continue
+        
+        # Sort by CPU usage
+        processes.sort(key=lambda x: x['cpu_percent'], reverse=True)
+        
+        return jsonify({'processes': processes[:50]})  # Return top 50 processes
+    except ImportError:
+        return jsonify({'error': 'psutil not installed'}), 500
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# Kill Process API
+@app.route('/api/kill_process/<int:pid>', methods=['POST'])
+def kill_process(pid):
+    if 'username' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    try:
+        import psutil
+        
+        process = psutil.Process(pid)
+        process.terminate()
+        
+        # Wait a bit, then force kill if still running
+        try:
+            process.wait(timeout=3)
+        except psutil.TimeoutExpired:
+            process.kill()
+        
+        return jsonify({'success': True, 'message': f'Process {pid} killed successfully'})
+    except psutil.NoSuchProcess:
+        return jsonify({'error': 'Process not found'}), 404
+    except psutil.AccessDenied:
+        return jsonify({'error': 'Access denied'}), 403
+    except ImportError:
+        return jsonify({'error': 'psutil not installed'}), 500
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# Network Information API
+@app.route('/api/network_info')
+def network_info():
+    if 'username' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    try:
+        import psutil
+        
+        # Network interfaces
+        net_io = psutil.net_io_counters()
+        net_interfaces = psutil.net_if_addrs()
+        
+        network_info = {
+            'bytes_sent': net_io.bytes_sent,
+            'bytes_recv': net_io.bytes_recv,
+            'packets_sent': net_io.packets_sent,
+            'packets_recv': net_io.packets_recv,
+            'interfaces': {}
+        }
+        
+        for interface, addresses in net_interfaces.items():
+            network_info['interfaces'][interface] = []
+            for addr in addresses:
+                if addr.family == psutil.AF_INET:  # IPv4
+                    network_info['interfaces'][interface].append({
+                        'type': 'IPv4',
+                        'address': addr.address,
+                        'netmask': addr.netmask
+                    })
+                elif addr.family == psutil.AF_INET6:  # IPv6
+                    network_info['interfaces'][interface].append({
+                        'type': 'IPv6',
+                        'address': addr.address,
+                        'netmask': addr.netmask
+                    })
+        
+        return jsonify(network_info)
+    except ImportError:
+        return jsonify({'error': 'psutil not installed'}), 500
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# Backup Server API
+@app.route('/api/backup_server/<name>', methods=['POST'])
+def backup_server(name):
+    if 'username' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    if name not in server_manager.servers:
+        return jsonify({'error': 'Server not found'}), 404
+    
+    try:
+        import shutil
+        import zipfile
+        from datetime import datetime
+        
+        server_dir = os.path.join('servers', name)
+        if not os.path.exists(server_dir):
+            return jsonify({'error': 'Server directory not found'}), 404
+        
+        # Create backup directory
+        backup_dir = 'backups'
+        os.makedirs(backup_dir, exist_ok=True)
+        
+        # Create backup filename with timestamp
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        backup_filename = f'{name}_backup_{timestamp}.zip'
+        backup_path = os.path.join(backup_dir, backup_filename)
+        
+        # Create zip backup
+        with zipfile.ZipFile(backup_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+            for root, dirs, files in os.walk(server_dir):
+                for file in files:
+                    file_path = os.path.join(root, file)
+                    arcname = os.path.relpath(file_path, server_dir)
+                    zipf.write(file_path, arcname)
+        
+        backup_size = os.path.getsize(backup_path)
+        
+        return jsonify({
+            'success': True,
+            'message': f'Server {name} backed up successfully',
+            'backup_file': backup_filename,
+            'backup_size': backup_size,
+            'backup_size_mb': round(backup_size / (1024**2), 2)
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# Restore Server API
+@app.route('/api/restore_server/<name>', methods=['POST'])
+def restore_server(name):
+    if 'username' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    data = request.get_json()
+    backup_file = data.get('backup_file')
+    
+    if not backup_file:
+        return jsonify({'error': 'Backup file required'}), 400
+    
+    try:
+        import shutil
+        import zipfile
+        
+        backup_path = os.path.join('backups', backup_file)
+        if not os.path.exists(backup_path):
+            return jsonify({'error': 'Backup file not found'}), 404
+        
+        server_dir = os.path.join('servers', name)
+        
+        # Stop server if running
+        if name in server_manager.servers and server_manager.servers[name]['status'] == 'running':
+            server_manager.stop_server(name)
+        
+        # Remove existing server directory
+        if os.path.exists(server_dir):
+            shutil.rmtree(server_dir)
+        
+        # Create new server directory
+        os.makedirs(server_dir, exist_ok=True)
+        
+        # Extract backup
+        with zipfile.ZipFile(backup_path, 'r') as zipf:
+            zipf.extractall(server_dir)
+        
+        return jsonify({
+            'success': True,
+            'message': f'Server {name} restored successfully from {backup_file}'
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# List Backups API
+@app.route('/api/list_backups')
+def list_backups():
+    if 'username' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    try:
+        backup_dir = 'backups'
+        if not os.path.exists(backup_dir):
+            return jsonify({'backups': []})
+        
+        backups = []
+        for file in os.listdir(backup_dir):
+            if file.endswith('.zip'):
+                file_path = os.path.join(backup_dir, file)
+                file_stat = os.stat(file_path)
+                backups.append({
+                    'filename': file,
+                    'size': file_stat.st_size,
+                    'size_mb': round(file_stat.st_size / (1024**2), 2),
+                    'created': datetime.fromtimestamp(file_stat.st_ctime).isoformat()
+                })
+        
+        # Sort by creation time (newest first)
+        backups.sort(key=lambda x: x['created'], reverse=True)
+        
+        return jsonify({'backups': backups})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# Server Logs API
+@app.route('/api/server_logs/<name>')
+def server_logs(name):
+    if 'username' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    if name not in server_manager.servers:
+        return jsonify({'error': 'Server not found'}), 404
+    
+    try:
+        server_dir = os.path.join('servers', name)
+        log_files = []
+        
+        if os.path.exists(server_dir):
+            for file in os.listdir(server_dir):
+                if file.endswith('.log'):
+                    file_path = os.path.join(server_dir, file)
+                    file_stat = os.stat(file_path)
+                    log_files.append({
+                        'filename': file,
+                        'size': file_stat.st_size,
+                        'size_mb': round(file_stat.st_size / (1024**2), 2),
+                        'modified': datetime.fromtimestamp(file_stat.st_mtime).isoformat()
+                    })
+        
+        return jsonify({'log_files': log_files})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# Read Log File API
+@app.route('/api/read_log/<name>/<filename>')
+def read_log(name, filename):
+    if 'username' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    if name not in server_manager.servers:
+        return jsonify({'error': 'Server not found'}), 404
+    
+    try:
+        log_path = os.path.join('servers', name, filename)
+        
+        # Security check
+        if not log_path.startswith(os.path.abspath(os.path.join('servers', name))):
+            return jsonify({'error': 'Access denied'}), 403
+        
+        if not os.path.exists(log_path):
+            return jsonify({'error': 'Log file not found'}), 404
+        
+        # Read last 1000 lines
+        with open(log_path, 'r', encoding='utf-8', errors='ignore') as f:
+            lines = f.readlines()
+            last_lines = lines[-1000:] if len(lines) > 1000 else lines
+        
+        return jsonify({
+            'success': True,
+            'content': ''.join(last_lines),
+            'total_lines': len(lines),
+            'showing_lines': len(last_lines)
+        })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

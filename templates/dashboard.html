@@ -131,12 +131,18 @@
                 <h2><i class="fas fa-tachometer-alt me-2"></i>Dashboard</h2>
             </div>
             <div class="col-md-6 text-end">
+                <a href="{{ url_for('root_file_manager') }}" class="btn btn-danger me-2">
+                    <i class="fas fa-root me-1"></i>Root File Manager
+                </a>
                 <a href="{{ url_for('file_manager') }}" class="btn btn-info me-2">
                     <i class="fas fa-folder me-1"></i>File Manager
                 </a>
                 <a href="{{ url_for('create_server') }}" class="btn btn-primary me-2">
                     <i class="fas fa-plus me-1"></i>Create Flare Panel Server
                 </a>
+                <button class="btn btn-warning me-2" onclick="showSystemMonitor()">
+                    <i class="fas fa-chart-line me-1"></i>System Monitor
+                </button>
             </div>
         </div>
 
@@ -206,6 +212,12 @@
                             <a href="{{ url_for('server_file_manager', name=name) }}" class="btn btn-secondary">
                                 <i class="fas fa-folder me-1"></i>Files
                             </a>
+                            <button class="btn btn-warning" onclick="backupServer('{{ name }}')" title="Backup Server">
+                                <i class="fas fa-download"></i>
+                            </button>
+                            <button class="btn btn-success" onclick="showRestoreModal('{{ name }}')" title="Restore Server">
+                                <i class="fas fa-upload"></i>
+                            </button>
                             <a href="{{ url_for('delete_server', name=name) }}" class="btn btn-danger" onclick="return confirm('Are you sure?')">
                                 <i class="fas fa-trash me-1"></i>Delete
                             </a>
@@ -217,6 +229,411 @@
         </div>
     </div>
 
+    <!-- Restore Server Modal -->
+    <div class="modal fade" id="restoreModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-upload me-2"></i>Restore Server
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="backupSelect" class="form-label">Select Backup File</label>
+                        <select class="form-select" id="backupSelect">
+                            <option value="">Loading backups...</option>
+                        </select>
+                    </div>
+                    <div id="backupInfo" class="alert alert-info" style="display: none;">
+                        <small id="backupDetails"></small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-success" onclick="restoreServer()">
+                        <i class="fas fa-upload me-1"></i>Restore
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- System Monitor Modal -->
+    <div class="modal fade" id="systemMonitorModal" tabindex="-1">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-chart-line me-2"></i>System Monitor
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <!-- System Info -->
+                        <div class="col-md-6 mb-3">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6 class="mb-0"><i class="fas fa-info-circle me-2"></i>System Information</h6>
+                                </div>
+                                <div class="card-body" id="systemInfo">
+                                    <p>Loading...</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Resource Usage -->
+                        <div class="col-md-6 mb-3">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6 class="mb-0"><i class="fas fa-tachometer-alt me-2"></i>Resource Usage</h6>
+                                </div>
+                                <div class="card-body" id="resourceUsage">
+                                    <p>Loading...</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Network Info -->
+                        <div class="col-md-6 mb-3">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6 class="mb-0"><i class="fas fa-network-wired me-2"></i>Network Information</h6>
+                                </div>
+                                <div class="card-body" id="networkInfo">
+                                    <p>Loading...</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Process List -->
+                        <div class="col-md-6 mb-3">
+                            <div class="card">
+                                <div class="card-header d-flex justify-content-between align-items-center">
+                                    <h6 class="mb-0"><i class="fas fa-list me-2"></i>Top Processes</h6>
+                                    <button class="btn btn-sm btn-outline-primary" onclick="refreshProcesses()">
+                                        <i class="fas fa-sync-alt"></i> Refresh
+                                    </button>
+                                </div>
+                                <div class="card-body" id="processList">
+                                    <p>Loading...</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary" onclick="refreshAllData()">
+                        <i class="fas fa-sync-alt me-1"></i>Refresh All
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Auto-refresh server status
+        setInterval(function() {
+            {% for name in servers %}
+            fetch('/api/server_status/{{ name }}')
+                .then(response => response.json())
+                .then(data => {
+                    const statusElement = document.querySelector('[data-server="{{ name }}"] .badge');
+                    if (statusElement) {
+                        if (data.status === 'running') {
+                            statusElement.className = 'badge bg-success';
+                            statusElement.textContent = 'RUNNING';
+                        } else {
+                            statusElement.className = 'badge bg-danger';
+                            statusElement.textContent = 'STOPPED';
+                        }
+                    }
+                })
+                .catch(error => console.error('Error:', error));
+            {% endfor %}
+        }, 5000);
+
+        // System Monitor Functions
+        function showSystemMonitor() {
+            new bootstrap.Modal(document.getElementById('systemMonitorModal')).show();
+            refreshAllData();
+        }
+
+        function refreshAllData() {
+            loadSystemInfo();
+            loadResourceUsage();
+            loadNetworkInfo();
+            loadProcesses();
+        }
+
+        function loadSystemInfo() {
+            fetch('/api/system_info')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        document.getElementById('systemInfo').innerHTML = `<p class="text-danger">Error: ${data.error}</p>`;
+                        return;
+                    }
+                    
+                    const html = `
+                        <p><strong>Platform:</strong> ${data.platform} ${data.platform_version}</p>
+                        <p><strong>Architecture:</strong> ${data.architecture}</p>
+                        <p><strong>Hostname:</strong> ${data.hostname}</p>
+                        <p><strong>Python Version:</strong> ${data.python_version}</p>
+                        <p><strong>CPU Cores:</strong> ${data.cpu.count}</p>
+                    `;
+                    document.getElementById('systemInfo').innerHTML = html;
+                })
+                .catch(error => {
+                    document.getElementById('systemInfo').innerHTML = `<p class="text-danger">Error loading system info</p>`;
+                });
+        }
+
+        function loadResourceUsage() {
+            fetch('/api/system_info')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        document.getElementById('resourceUsage').innerHTML = `<p class="text-danger">Error: ${data.error}</p>`;
+                        return;
+                    }
+                    
+                    const html = `
+                        <div class="mb-3">
+                            <label class="form-label">CPU Usage: ${data.cpu.percent}%</label>
+                            <div class="progress">
+                                <div class="progress-bar bg-info" style="width: ${data.cpu.percent}%"></div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Memory Usage: ${data.memory.percent}% (${data.memory.used_gb}GB / ${data.memory.total_gb}GB)</label>
+                            <div class="progress">
+                                <div class="progress-bar bg-warning" style="width: ${data.memory.percent}%"></div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Disk Usage: ${data.disk.percent}% (${data.disk.used_gb}GB / ${data.disk.total_gb}GB)</label>
+                            <div class="progress">
+                                <div class="progress-bar bg-success" style="width: ${data.disk.percent}%"></div>
+                            </div>
+                        </div>
+                    `;
+                    document.getElementById('resourceUsage').innerHTML = html;
+                })
+                .catch(error => {
+                    document.getElementById('resourceUsage').innerHTML = `<p class="text-danger">Error loading resource usage</p>`;
+                });
+        }
+
+        function loadNetworkInfo() {
+            fetch('/api/network_info')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        document.getElementById('networkInfo').innerHTML = `<p class="text-danger">Error: ${data.error}</p>`;
+                        return;
+                    }
+                    
+                    let interfacesHtml = '';
+                    for (const [interface, addresses] of Object.entries(data.interfaces)) {
+                        interfacesHtml += `<p><strong>${interface}:</strong></p>`;
+                        addresses.forEach(addr => {
+                            interfacesHtml += `<small class="text-muted">${addr.type}: ${addr.address}</small><br>`;
+                        });
+                    }
+                    
+                    const html = `
+                        <p><strong>Bytes Sent:</strong> ${(data.bytes_sent / (1024*1024)).toFixed(2)} MB</p>
+                        <p><strong>Bytes Received:</strong> ${(data.bytes_recv / (1024*1024)).toFixed(2)} MB</p>
+                        <p><strong>Packets Sent:</strong> ${data.packets_sent.toLocaleString()}</p>
+                        <p><strong>Packets Received:</strong> ${data.packets_recv.toLocaleString()}</p>
+                        <hr>
+                        <h6>Network Interfaces:</h6>
+                        ${interfacesHtml}
+                    `;
+                    document.getElementById('networkInfo').innerHTML = html;
+                })
+                .catch(error => {
+                    document.getElementById('networkInfo').innerHTML = `<p class="text-danger">Error loading network info</p>`;
+                });
+        }
+
+        function loadProcesses() {
+            fetch('/api/processes')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        document.getElementById('processList').innerHTML = `<p class="text-danger">Error: ${data.error}</p>`;
+                        return;
+                    }
+                    
+                    let processesHtml = '<div class="table-responsive"><table class="table table-sm">';
+                    processesHtml += '<thead><tr><th>PID</th><th>Name</th><th>CPU%</th><th>Memory%</th><th>Status</th><th>Action</th></tr></thead><tbody>';
+                    
+                    data.processes.forEach(proc => {
+                        processesHtml += `
+                            <tr>
+                                <td>${proc.pid}</td>
+                                <td>${proc.name}</td>
+                                <td>${proc.cpu_percent}%</td>
+                                <td>${proc.memory_percent}%</td>
+                                <td><span class="badge bg-${proc.status === 'running' ? 'success' : 'secondary'}">${proc.status}</span></td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-danger" onclick="killProcess(${proc.pid})" title="Kill Process">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        `;
+                    });
+                    
+                    processesHtml += '</tbody></table></div>';
+                    document.getElementById('processList').innerHTML = processesHtml;
+                })
+                .catch(error => {
+                    document.getElementById('processList').innerHTML = `<p class="text-danger">Error loading processes</p>`;
+                });
+        }
+
+        function refreshProcesses() {
+            loadProcesses();
+        }
+
+        function killProcess(pid) {
+            if (confirm(`Are you sure you want to kill process ${pid}?`)) {
+                fetch(`/api/kill_process/${pid}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert(data.message);
+                        loadProcesses();
+                    } else {
+                        alert('Error: ' + data.error);
+                    }
+                })
+                .catch(error => {
+                    alert('Error killing process');
+                });
+            }
+        }
+
+        // Backup and Restore Functions
+        let currentRestoreServer = '';
+
+        function backupServer(serverName) {
+            if (confirm(`Create backup of server "${serverName}"?`)) {
+                fetch(`/api/backup_server/${serverName}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert(`Backup created successfully!\nFile: ${data.backup_file}\nSize: ${data.backup_size_mb} MB`);
+                    } else {
+                        alert('Error creating backup: ' + data.error);
+                    }
+                })
+                .catch(error => {
+                    alert('Error creating backup');
+                });
+            }
+        }
+
+        function showRestoreModal(serverName) {
+            currentRestoreServer = serverName;
+            loadBackups();
+            new bootstrap.Modal(document.getElementById('restoreModal')).show();
+        }
+
+        function loadBackups() {
+            fetch('/api/list_backups')
+                .then(response => response.json())
+                .then(data => {
+                    const select = document.getElementById('backupSelect');
+                    select.innerHTML = '<option value="">Select a backup file...</option>';
+                    
+                    data.backups.forEach(backup => {
+                        const option = document.createElement('option');
+                        option.value = backup.filename;
+                        option.textContent = `${backup.filename} (${backup.size_mb} MB)`;
+                        select.appendChild(option);
+                    });
+                })
+                .catch(error => {
+                    document.getElementById('backupSelect').innerHTML = '<option value="">Error loading backups</option>';
+                });
+        }
+
+        function restoreServer() {
+            const backupFile = document.getElementById('backupSelect').value;
+            if (!backupFile) {
+                alert('Please select a backup file');
+                return;
+            }
+
+            if (confirm(`Restore server "${currentRestoreServer}" from backup "${backupFile}"?\n\nThis will replace all current server files!`)) {
+                fetch(`/api/restore_server/${currentRestoreServer}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        backup_file: backupFile
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert(data.message);
+                        bootstrap.Modal.getInstance(document.getElementById('restoreModal')).hide();
+                        location.reload();
+                    } else {
+                        alert('Error restoring server: ' + data.error);
+                    }
+                })
+                .catch(error => {
+                    alert('Error restoring server');
+                });
+            }
+        }
+
+        // Update backup info when selection changes
+        document.addEventListener('DOMContentLoaded', function() {
+            const backupSelect = document.getElementById('backupSelect');
+            if (backupSelect) {
+                backupSelect.addEventListener('change', function() {
+                    const selectedFile = this.value;
+                    const backupInfo = document.getElementById('backupInfo');
+                    const backupDetails = document.getElementById('backupDetails');
+                    
+                    if (selectedFile) {
+                        fetch('/api/list_backups')
+                            .then(response => response.json())
+                            .then(data => {
+                                const backup = data.backups.find(b => b.filename === selectedFile);
+                                if (backup) {
+                                    backupDetails.textContent = `Created: ${new Date(backup.created).toLocaleString()} | Size: ${backup.size_mb} MB`;
+                                    backupInfo.style.display = 'block';
+                                }
+                            });
+                    } else {
+                        backupInfo.style.display = 'none';
+                    }
+                });
+            }
+        });
+    </script>
 </body>
 </html>

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Flare Panel - Server File Manager</title>
+    <title>Flare Panel - Root File Manager</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet">
@@ -81,12 +81,12 @@
             background: linear-gradient(45deg, #00ff88, #00d4aa);
             border: none;
         }
-        .btn-info {
-            background: linear-gradient(45deg, #3742fa, #5352ed);
+        .btn-danger {
+            background: linear-gradient(45deg, #ff4757, #ff3742);
             border: none;
         }
-        .btn-secondary {
-            background: linear-gradient(45deg, #747d8c, #57606f);
+        .btn-info {
+            background: linear-gradient(45deg, #3742fa, #5352ed);
             border: none;
         }
         .navbar-brand {
@@ -100,8 +100,8 @@
         .list-group-item:hover {
             background: rgba(255, 107, 53, 0.1);
         }
-        .server-badge {
-            background: linear-gradient(45deg, #ff6b35, #f7931e);
+        .root-badge {
+            background: linear-gradient(45deg, #ff4757, #ff3742);
             color: white;
             padding: 5px 15px;
             border-radius: 20px;
@@ -165,7 +165,7 @@
             </a>
             <div class="navbar-nav ms-auto">
                 <span class="navbar-text me-3">
-                    <i class="fas fa-server me-1"></i>{{ server_name }}
+                    <i class="fas fa-user me-1"></i>{{ username }}
                 </span>
                 <a class="nav-link" href="{{ url_for('dashboard') }}">
                     <i class="fas fa-arrow-left me-1"></i>Back
@@ -177,13 +177,10 @@
     <div class="container mt-4">
         <div class="row mb-4">
             <div class="col-md-6">
-                <h2><i class="fas fa-folder me-2"></i>Server File Manager</h2>
-                <span class="server-badge">{{ server_name }}</span>
+                <h2><i class="fas fa-folder me-2"></i>Root File Manager</h2>
+                <span class="root-badge">Full System Access</span>
             </div>
             <div class="col-md-6 text-end">
-                <button class="btn btn-warning" onclick="installDependencies()">
-                    <i class="fas fa-download me-1"></i>Install Dependencies
-                </button>
                 <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#uploadModal">
                     <i class="fas fa-upload me-1"></i>Upload File
                 </button>
@@ -208,11 +205,11 @@
         <nav aria-label="breadcrumb">
             <ol class="breadcrumb">
                 <li class="breadcrumb-item">
-                    <a href="{{ url_for('server_file_manager', name=server_name) }}">Root</a>
+                    <a href="{{ url_for('root_file_manager') }}">Root</a>
                 </li>
                 {% for part in current_path.split('/') if part %}
                     <li class="breadcrumb-item">
-                        <a href="{{ url_for('server_file_manager', name=server_name, path='/'.join(current_path.split('/')[:loop.index])) }}">{{ part }}</a>
+                        <a href="{{ url_for('root_file_manager', path='/'.join(current_path.split('/')[:loop.index])) }}">{{ part }}</a>
                     </li>
                 {% endfor %}
             </ol>
@@ -223,12 +220,13 @@
             <div class="card-header">
                 <h5 class="mb-0">
                     <i class="fas fa-list me-2"></i>Files and Folders
+                    <small class="text-muted ms-2">({{ current_path }})</small>
                 </h5>
             </div>
             <div class="card-body p-0">
                 <div class="list-group list-group-flush">
                     {% if current_path != '.' %}
-                        <a href="{{ url_for('server_file_manager', name=server_name, path='/'.join(current_path.split('/')[:-1])) }}" 
+                        <a href="{{ url_for('root_file_manager', path='/'.join(current_path.split('/')[:-1])) }}" 
                            class="list-group-item list-group-item-action file-item">
                             <i class="fas fa-level-up-alt me-2"></i>.. (Go Up)
                         </a>
@@ -236,7 +234,7 @@
                     
                     {% for item in files %}
                         {% if item.is_dir %}
-                            <a href="{{ url_for('server_file_manager', name=server_name, path=item.path) }}" 
+                            <a href="{{ url_for('root_file_manager', path=item.path) }}" 
                                class="list-group-item list-group-item-action file-item">
                                 <i class="fas fa-folder me-2 folder-item"></i>{{ item.name }}
                             </a>
@@ -247,7 +245,7 @@
                                     <small class="text-muted ms-2">({{ item.size }})</small>
                                 </div>
                                 <div class="btn-group btn-group-sm">
-                                    <a href="{{ url_for('server_file_manager', name=server_name, path=item.path, action='download') }}" 
+                                    <a href="{{ url_for('root_file_manager', path=item.path, action='download') }}" 
                                        class="btn btn-outline-primary" title="Download">
                                         <i class="fas fa-download"></i>
                                     </a>
@@ -266,7 +264,7 @@
                                         <i class="fas fa-cut"></i>
                                     </button>
                                     {% if item.name.endswith(('.zip', '.tar.gz', '.tgz', '.rar')) %}
-                                    <a href="{{ url_for('server_unarchive_file', name=server_name, path=item.path, current_path=current_path) }}" 
+                                    <a href="{{ url_for('unarchive_file', path=item.path, current_path=current_path) }}" 
                                        class="btn btn-outline-success" title="Extract Archive">
                                         <i class="fas fa-file-archive"></i>
                                     </a>
@@ -289,10 +287,10 @@
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">Upload File to {{ server_name }}</h5>
+                    <h5 class="modal-title">Upload File</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <form action="{{ url_for('server_upload_file', name=server_name) }}" method="POST" enctype="multipart/form-data">
+                <form action="{{ url_for('root_upload_file') }}" method="POST" enctype="multipart/form-data">
                     <div class="modal-body">
                         <input type="hidden" name="path" value="{{ current_path }}">
                         <div class="mb-3">
@@ -314,10 +312,10 @@
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">Create Folder in {{ server_name }}</h5>
+                    <h5 class="modal-title">Create Folder</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <form action="{{ url_for('server_create_folder', name=server_name) }}" method="POST">
+                <form action="{{ url_for('root_create_folder') }}" method="POST">
                     <div class="modal-body">
                         <input type="hidden" name="path" value="{{ current_path }}">
                         <div class="mb-3">
@@ -328,37 +326,6 @@
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                         <button type="submit" class="btn btn-success">Create</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- Move File Modal -->
-    <div class="modal fade" id="moveFileModal" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Move File</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <form action="{{ url_for('move_file') }}" method="POST">
-                    <div class="modal-body">
-                        <input type="hidden" name="current_path" value="{{ current_path }}">
-                        <input type="hidden" name="source_path" id="moveSourcePath">
-                        <div class="mb-3">
-                            <label for="moveFileName" class="form-label">File Name</label>
-                            <input type="text" class="form-control" id="moveFileName" readonly>
-                        </div>
-                        <div class="mb-3">
-                            <label for="destination_path" class="form-label">Destination Path</label>
-                            <input type="text" class="form-control" id="destination_path" name="destination_path" 
-                                   placeholder="/path/to/destination/filename" required>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-primary">Move</button>
                     </div>
                 </form>
             </div>
@@ -439,55 +406,40 @@
         function deleteFile(path, fileName) {
             const isDir = fileName.includes('.') ? false : true;
             const itemType = isDir ? 'folder' : 'file';
-            const message = `⚠️ WARNING: You are about to delete a ${itemType} from server "{{ server_name }}"!\n\nName: ${fileName}\nPath: ${path}\n\nThis action cannot be undone. Are you sure?`;
+            const message = `⚠️ WARNING: You are about to delete a ${itemType} from the ROOT file system!\n\nName: ${fileName}\nPath: ${path}\n\nThis action cannot be undone. Are you sure?`;
             
             if (confirm(message)) {
-                window.location.href = '{{ url_for("server_delete_file", name=server_name) }}?path=' + encodeURIComponent(path);
+                window.location.href = '{{ url_for("root_delete_file") }}?path=' + encodeURIComponent(path);
             }
         }
         
         function renameFile(path, currentName) {
             const newName = prompt('Enter new name:', currentName);
             if (newName && newName !== currentName) {
-                const form = document.createElement('form');
-                form.method = 'POST';
-                form.action = '{{ url_for("server_rename_file", name=server_name) }}';
-                
-                const oldPathInput = document.createElement('input');
-                oldPathInput.type = 'hidden';
-                oldPathInput.name = 'old_path';
-                oldPathInput.value = path;
-                
-                const newNameInput = document.createElement('input');
-                newNameInput.type = 'hidden';
-                newNameInput.name = 'new_name';
-                newNameInput.value = newName;
-                
-                const currentPathInput = document.createElement('input');
-                currentPathInput.type = 'hidden';
-                currentPathInput.name = 'current_path';
-                currentPathInput.value = '{{ current_path }}';
-                
-                form.appendChild(oldPathInput);
-                form.appendChild(newNameInput);
-                form.appendChild(currentPathInput);
-                document.body.appendChild(form);
-                form.submit();
+                fetch('/api/root_file_action', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        action: 'rename',
+                        path: path,
+                        new_name: newName
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        location.reload();
+                    } else {
+                        alert('Error renaming file: ' + data.error);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error renaming file');
+                });
             }
-        }
-
-        function moveFile(path, fileName) {
-            // Set values in modal
-            document.getElementById('moveSourcePath').value = path;
-            document.getElementById('moveFileName').value = fileName;
-            
-            // Set default destination path
-            const currentDir = '{{ current_path }}';
-            const defaultDest = path.replace(currentDir, '').substring(1); // Remove leading slash
-            document.getElementById('destination_path').value = defaultDest;
-            
-            // Show modal
-            new bootstrap.Modal(document.getElementById('moveFileModal')).show();
         }
 
         function editFile(path, fileName) {
@@ -611,31 +563,6 @@
                 } else {
                     alert('Text not found');
                 }
-            }
-        }
-
-        function installDependencies() {
-            if (confirm('Install dependencies from requirements.txt?')) {
-                fetch('/api/install_dependencies/{{ server_name }}', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    }
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        alert('Dependencies installed successfully! Check console for details.');
-                        // Redirect to console to see installation logs
-                        window.location.href = '{{ url_for("server_console", name=server_name) }}';
-                    } else {
-                        alert('Error installing dependencies: ' + data.error);
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    alert('Error installing dependencies');
-                });
             }
         }
     </script>
