@@ -8,6 +8,10 @@ import json
 import os
 import subprocess
 import sys
+import platform
+
+if platform.system() != 'Linux':
+    raise RuntimeError("This script is only supported on Linux VPS servers.")
 
 def run_command(command, description=""):
     """Run a command and return the result"""
