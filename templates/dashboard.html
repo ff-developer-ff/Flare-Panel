@@ -134,12 +134,6 @@
                 <button class="btn btn-warning me-2" onclick="showSystemMonitor()">
                     <i class="fas fa-chart-line me-1"></i>System Monitor
                 </button>
-                <a href="{{ url_for('root_file_manager') }}" class="btn btn-danger me-2">
-                    <i class="fas fa-root me-1"></i>Root File Manager
-                </a>
-                <a href="{{ url_for('file_manager') }}" class="btn btn-info me-2">
-                    <i class="fas fa-folder me-1"></i>File Manager
-                </a>
                 <a href="{{ url_for('create_server') }}" class="btn btn-primary me-2">
                     <i class="fas fa-plus me-1"></i>Create Flare Panel Server
                 </a>
@@ -206,20 +200,8 @@
                     </div>
                     <div class="card-footer">
                         <div class="btn-group w-100" role="group">
-                            <a href="{{ url_for('server_console', name=name) }}" class="btn btn-info">
-                                <i class="fas fa-terminal me-1"></i>Console
-                            </a>
-                            <a href="{{ url_for('server_file_manager', name=name) }}" class="btn btn-secondary">
-                                <i class="fas fa-folder me-1"></i>Files
-                            </a>
-                            <button class="btn btn-warning" onclick="backupServer('{{ name }}')" title="Backup Server">
-                                <i class="fas fa-download"></i>
-                            </button>
-                            <button class="btn btn-success" onclick="showRestoreModal('{{ name }}')" title="Restore Server">
-                                <i class="fas fa-upload"></i>
-                            </button>
-                            <a href="{{ url_for('delete_server', name=name) }}" class="btn btn-danger" onclick="return confirm('Are you sure?')">
-                                <i class="fas fa-trash me-1"></i>Delete
+                            <a href="{{ url_for('manage_server', name=name) }}" class="btn btn-primary w-100">
+                                <i class="fas fa-cogs me-1"></i>Manage
                             </a>
                         </div>
                     </div>

@@ -1,0 +1,415 @@
+/* Flare Panel Modern Dashboard Theme */
+
+:root {
+  --flare-bg: #1a1c20;
+  --flare-bg-alt: #1f2937;
+  --flare-main: #111827;
+  --flare-sidebar: #1f2937;
+  --flare-orange: #ff8800;
+  --flare-orange-hover: #ff9900;
+  --flare-gray: #9ca3af;
+  --flare-blue: #2563eb;
+  --flare-border: #374151;
+  --flare-success: #10b981;
+  --flare-danger: #ef4444;
+  --flare-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
+  --flare-radius-lg: 0.75rem;
+  --flare-radius: 0.5rem;
+  --flare-radius-sm: 0.375rem;
+  --flare-font: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+html, body {
+  background: var(--flare-bg);
+  color: #f3f4f6;
+  font-family: var(--flare-font);
+  min-height: 100vh;
+  line-height: 1.5;
+}
+
+/* Top Navigation */
+.navbar {
+  background: var(--flare-bg-alt) !important;
+  border-bottom: 1px solid var(--flare-border);
+  padding: 0.75rem 1.5rem;
+  margin-bottom: 0 !important;
+}
+.navbar-brand {
+  font-weight: 600;
+  color: #fff !important;
+  font-size: 1.125rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.navbar-brand i {
+  color: var(--flare-orange);
+}
+
+/* Main Layout */
+.pf-layout {
+  display: flex;
+  padding: 1.5rem;
+  gap: 1.5rem;
+  height: calc(100vh - 61px);
+  overflow: hidden;
+}
+
+/* Left Controls */
+.pf-controls {
+  width: 300px;
+  background: var(--flare-bg-alt);
+  border-radius: var(--flare-radius);
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.pf-server-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--flare-border);
+}
+
+.pf-server-icon {
+  width: 42px;
+  height: 42px;
+  background: var(--flare-main);
+  border-radius: var(--flare-radius);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--flare-orange);
+}
+
+.pf-server-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+  color: #fff;
+}
+
+.pf-status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 0.375rem;
+}
+.pf-status-dot.running { background: var(--flare-success); box-shadow: 0 0 8px var(--flare-success); }
+.pf-status-dot.stopped { background: var(--flare-danger); box-shadow: 0 0 8px var(--flare-danger); }
+
+.pf-info-section {
+  padding: 1rem 0;
+  border-bottom: 1px solid var(--flare-border);
+}
+
+.pf-info-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.875rem;
+  padding: 0.375rem 0;
+  color: var(--flare-gray);
+}
+
+.pf-info-row i {
+  width: 16px;
+  color: var(--flare-orange);
+}
+
+.pf-action-btns {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+}
+
+.pf-btn {
+  background: var(--flare-main);
+  color: var(--flare-gray);
+  border: 1px solid var(--flare-border);
+  font-weight: 500;
+  font-size: 0.875rem;
+  border-radius: var(--flare-radius-sm);
+  padding: 0.625rem 1rem;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  cursor: pointer;
+}
+
+.pf-btn:hover {
+  background: var(--flare-bg-alt);
+  color: #fff;
+  border-color: var(--flare-orange);
+}
+
+.pf-btn.pf-btn-main {
+  background: var(--flare-orange);
+  color: #fff;
+  border: none;
+}
+
+.pf-btn.pf-btn-main:hover {
+  background: var(--flare-orange-hover);
+  transform: translateY(-1px);
+}
+
+/* Main Content Area */
+.pf-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* Tabs */
+.pf-tabs {
+  display: flex;
+  gap: 0.25rem;
+  border-bottom: 1px solid var(--flare-border);
+  padding: 0 1rem;
+  background: var(--flare-bg-alt);
+  border-radius: var(--flare-radius) var(--flare-radius) 0 0;
+}
+
+.pf-tab {
+  background: none;
+  border: none;
+  color: var(--flare-gray);
+  font-weight: 500;
+  font-size: 0.875rem;
+  padding: 0.875rem 1.5rem;
+  position: relative;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.pf-tab::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--flare-orange);
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.pf-tab.active {
+  color: #fff;
+}
+
+.pf-tab.active::after {
+  opacity: 1;
+}
+
+.pf-tab:hover:not(.active) {
+  color: #fff;
+}
+
+/* Console */
+.pf-console-container {
+  flex: 1;
+  background: var(--flare-main);
+  border-radius: 0 0 var(--flare-radius) var(--flare-radius);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.pf-console {
+  flex: 1;
+  background: var(--flare-main);
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: #e5e7eb;
+  padding: 1rem;
+  overflow-y: auto;
+  min-height: 400px;
+  max-height: calc(100vh - 250px);
+}
+
+.pf-console-input-container {
+  padding: 0.75rem;
+  background: var(--flare-bg-alt);
+  border-top: 1px solid var(--flare-border);
+}
+
+.pf-console-input-wrap {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.pf-console-input {
+  flex: 1;
+  background: var(--flare-main);
+  color: #fff;
+  border: 1px solid var(--flare-border);
+  border-radius: var(--flare-radius-sm);
+  padding: 0.625rem 1rem;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 0.875rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.pf-console-input:focus {
+  border-color: var(--flare-orange);
+}
+
+/* File Manager */
+.pf-file-toolbar {
+  display: flex;
+  gap: 0.5rem;
+  padding: 1rem;
+  background: var(--flare-bg-alt);
+  border-radius: var(--flare-radius) var(--flare-radius) 0 0;
+}
+
+.pf-file-search {
+  margin-left: auto;
+  width: 250px;
+  background: var(--flare-main);
+  border: 1px solid var(--flare-border);
+  color: #fff;
+  border-radius: var(--flare-radius-sm);
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  transition: border-color 0.2s;
+}
+
+.pf-file-search:focus {
+  border-color: var(--flare-orange);
+  outline: none;
+}
+
+.pf-file-table {
+  background: var(--flare-main);
+  border-radius: 0 0 var(--flare-radius) var(--flare-radius);
+}
+
+.pf-file-table table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.pf-file-table th {
+  background: var(--flare-bg-alt);
+  color: var(--flare-gray);
+  font-weight: 500;
+  font-size: 0.875rem;
+  text-align: left;
+  padding: 0.75rem 1rem;
+}
+
+.pf-file-table td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--flare-border);
+  font-size: 0.875rem;
+}
+
+.pf-file-table tr:hover td {
+  background: var(--flare-bg-alt);
+}
+
+.pf-file-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+}
+
+.pf-file-folder { color: #fbbf24; }
+.pf-file-file { color: #60a5fa; }
+
+/* Settings Form */
+.pf-settings-form {
+  padding: 1.5rem;
+  background: var(--flare-main);
+  border-radius: 0 0 var(--flare-radius) var(--flare-radius);
+}
+
+.pf-settings-form label {
+  display: block;
+  color: var(--flare-gray);
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+}
+
+.pf-settings-form input,
+.pf-settings-form textarea {
+  width: 100%;
+  background: var(--flare-bg-alt);
+  border: 1px solid var(--flare-border);
+  color: #fff;
+  border-radius: var(--flare-radius-sm);
+  padding: 0.625rem 1rem;
+  font-size: 0.875rem;
+  margin-bottom: 1rem;
+  transition: border-color 0.2s;
+}
+
+.pf-settings-form input:focus,
+.pf-settings-form textarea:focus {
+  border-color: var(--flare-orange);
+  outline: none;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--flare-main);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--flare-border);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--flare-gray);
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .pf-layout {
+    flex-direction: column;
+    height: auto;
+    overflow: visible;
+  }
+  
+  .pf-controls {
+    width: 100%;
+  }
+  
+  .pf-console {
+    max-height: 500px;
+  }
+}
+
+@media (max-width: 768px) {
+  .pf-action-btns {
+    grid-template-columns: 1fr;
+  }
+  
+  .pf-file-toolbar {
+    flex-wrap: wrap;
+  }
+  
+  .pf-file-search {
+    width: 100%;
+    margin-top: 0.5rem;
+  }
+} 

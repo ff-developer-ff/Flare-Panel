@@ -144,6 +144,17 @@
                                 <input type="text" class="form-control" id="app_file" name="app_file" value="app.py" required>
                             </div>
                         </div>
+                        <div id="gunicorn_ssl_fields" style="display:none;">
+                            <div class="form-group">
+                                <label for="domain_name">Domain Name</label>
+                                <input type="text" class="form-control" id="domain_name" name="domain_name" placeholder="e.g. myapp.example.com">
+                                <small class="form-text text-muted">Point your domain to your VPS IP before enabling SSL.</small>
+                            </div>
+                            <div class="form-group form-check">
+                                <input type="checkbox" class="form-check-input" id="enable_ssl" name="enable_ssl">
+                                <label class="form-check-label" for="enable_ssl">Enable SSL (HTTPS)</label>
+                            </div>
+                        </div>
                         <div class="d-grid gap-2 d-md-flex justify-content-md-end">
                             <a href="{{ url_for('dashboard') }}" class="btn btn-secondary me-md-2">
                                 <i class="fas fa-arrow-left me-1"></i>Back
@@ -163,16 +174,39 @@
         function updateServerInfo() {
             const serverType = document.getElementById('server_type').value;
             const serverInfo = document.getElementById('server_info');
-            
+            const gunicornFields = document.getElementById('gunicorn_ssl_fields');
+            if (serverType === 'gunicorn') {
+                gunicornFields.style.display = '';
+            } else {
+                gunicornFields.style.display = 'none';
+            }
             const info = {
                 'flask': 'Flare Panel development server with Python. Good for development and testing.',
                 'gunicorn': 'Production-ready Flare Panel server with Gunicorn WSGI. Command: gunicorn --bind 0.0.0.0:port --workers 2 app:app',
                 'python_bot': 'Comprehensive Python Bot with Discord integration, API monitoring, and automation capabilities. Includes all standard Python libraries.'
             };
-            
             serverInfo.textContent = info[serverType] || '';
         }
-        
+        function toggleSSLFields() {
+            const sslChecked = document.getElementById('enable_ssl').checked;
+            document.getElementById('ssl_paths').style.display = sslChecked ? '' : 'none';
+            document.getElementById('both_http_https_option').style.display = sslChecked ? '' : 'none';
+            // Autofill cert/key path if domain is present
+            if (sslChecked) {
+                const domain = document.getElementById('domain_name').value.trim();
+                if (domain) {
+                    document.getElementById('ssl_cert').value = `/etc/letsencrypt/live/${domain}/fullchain.pem`;
+                    document.getElementById('ssl_key').value = `/etc/letsencrypt/live/${domain}/privkey.pem`;
+                }
+            }
+        }
+        document.getElementById('domain_name')?.addEventListener('input', function() {
+            if (document.getElementById('enable_ssl').checked) {
+                const domain = this.value.trim();
+                document.getElementById('ssl_cert').value = `/etc/letsencrypt/live/${domain}/fullchain.pem`;
+                document.getElementById('ssl_key').value = `/etc/letsencrypt/live/${domain}/privkey.pem`;
+            }
+        });
         // Initialize on page load
         updateServerInfo();
     </script>

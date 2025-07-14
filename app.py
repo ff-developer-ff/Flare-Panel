@@ -108,24 +108,24 @@ class ServerManager:
             return True
         return False
     
-    def install_server_dependencies(self, name):
+    def install_server_dependencies(self, name, requirements_file='requirements.txt'):
         """Install dependencies from requirements.txt for a server"""
         if name not in self.servers:
             return False, "Server not found"
         
         server_dir = os.path.join('servers', name)
-        requirements_file = os.path.join(server_dir, 'requirements.txt')
+        requirements_file = os.path.join(server_dir, requirements_file)
         
         if not os.path.exists(requirements_file):
-            return False, "requirements.txt not found"
+            return False, f"{requirements_file} not found"
         
         try:
             # Log the installation start
-            self.add_console_log(name, "Installing dependencies from requirements.txt...")
+            self.add_console_log(name, f"Installing dependencies from {requirements_file}...")
             
             # Run pip install
             process = subprocess.Popen(
-                ['pip3', 'install', '-r', 'requirements.txt'],
+                ['pip3', 'install', '-r', requirements_file],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
@@ -172,6 +172,14 @@ class ServerManager:
             # Create server directory if it doesn't exist
             server_dir = os.path.join('servers', name)
             os.makedirs(server_dir, exist_ok=True)
+            
+            # Check for requirements.txt and install dependencies
+            requirements_file = os.path.join(server_dir, 'requirements.txt')
+            if os.path.exists(requirements_file):
+                self.add_console_log(name, "Found requirements.txt, installing dependencies...")
+                success, message = self.install_server_dependencies(name)
+                if not success:
+                    self.add_console_log(name, f"Warning: Failed to install dependencies: {message}")
             
             # Get absolute paths
             server_dir_abs = os.path.abspath(server_dir)
@@ -313,6 +321,97 @@ def get_local_ip():
     except:
         return "127.0.0.1"
 
+def setup_nginx_and_ssl(domain, backend_port, enable_ssl, enable_both):
+    nginx_conf = ""
+    conf_path = f"/etc/nginx/sites-available/{domain}"
+
+    # HTTP block (always present)
+    nginx_conf += f"""
+server {{
+    listen 80;
+    server_name {domain};
+    location / {{
+        proxy_pass http://127.0.0.1:{backend_port};
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }}
+"""
+    # If SSL is enabled, redirect HTTP to HTTPS
+    if enable_ssl:
+        nginx_conf += """
+    # Redirect all HTTP to HTTPS
+    return 301 https://$host$request_uri;
+"""
+    nginx_conf += "}\n"
+
+    # HTTPS block if SSL is enabled
+    if enable_ssl:
+        nginx_conf += f"""
+server {{
+    listen 443 ssl;
+    server_name {domain};
+
+    ssl_certificate /etc/letsencrypt/live/{domain}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/{domain}/privkey.pem;
+
+    location / {{
+        proxy_pass http://127.0.0.1:{backend_port};
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }}
+}}
+"""
+
+    # Write the config file
+    with open(conf_path, "w") as f:
+        f.write(nginx_conf)
+
+    # Enable the site
+    subprocess.run(["sudo", "ln", "-sf", conf_path, f"/etc/nginx/sites-enabled/{domain}"])
+    subprocess.run(["sudo", "nginx", "-t"])
+    subprocess.run(["sudo", "systemctl", "reload", "nginx"])
+
+    # Run certbot if SSL is enabled
+    certbot_output = ""
+    certbot_success = True
+    if enable_ssl:
+        certbot_cmd = [
+            "sudo", "certbot", "--nginx", "-d", domain, "--non-interactive", "--agree-tos", "-m", f"admin@{domain}"
+        ]
+        result = subprocess.run(certbot_cmd, capture_output=True, text=True, timeout=120)
+        certbot_output = result.stdout + '\n' + result.stderr
+        certbot_success = (result.returncode == 0)
+    return certbot_success, certbot_output
+
+def cleanup_nginx_and_ssl(domain, ssl_enabled):
+    import subprocess
+    import os
+    conf_path = f"/etc/nginx/sites-available/{domain}"
+    enabled_path = f"/etc/nginx/sites-enabled/{domain}"
+    # Remove Nginx config files
+    try:
+        if os.path.exists(conf_path):
+            os.remove(conf_path)
+        if os.path.exists(enabled_path):
+            os.remove(enabled_path)
+        subprocess.run(["sudo", "nginx", "-t"])
+        subprocess.run(["sudo", "systemctl", "reload", "nginx"])
+    except Exception as e:
+        print(f"Error removing Nginx config: {e}")
+    # Remove SSL certificate if enabled
+    if ssl_enabled:
+        try:
+            subprocess.run([
+                "sudo", "certbot", "delete", "--cert-name", domain,
+                "--non-interactive", "--quiet"
+            ])
+        except Exception as e:
+            print(f"Error removing SSL certificate: {e}")
+
 # Routes - Lightweight version
 @app.route('/')
 def index():
@@ -359,289 +458,53 @@ def create_server():
         host = request.form.get('host', '0.0.0.0')  # Default to 0.0.0.0 if not provided
         port = int(request.form['port'])
         server_type = request.form['server_type']
-        
-        if name in server_manager.servers:
-            flash('Server name already exists', 'error')
-            return redirect(url_for('create_server'))
-        
-        # Create server directory
-        server_dir = os.path.join('servers', name)
-        os.makedirs(server_dir, exist_ok=True)
-        
-        # Create app file based on server type
-        app_file = 'app.py'
-        if server_type == 'flask':
-            app_content = '''from flask import Flask, jsonify
-import os
-
-app = Flask(__name__)
-
-@app.route('/')
-def home():
-    return jsonify({"message": "Flask server running!", "server": "''' + name + '''"})
-
-@app.route('/health')
-def health():
-    return jsonify({"status": "healthy"})
-
-if __name__ == '__main__':
-    port = int(os.environ.get('PORT', ''' + str(port) + '''))
-    host = os.environ.get('HOST', '0.0.0.0')
-    app.run(host=host, port=port, debug=False)
-'''
-        elif server_type == 'gunicorn':
-            app_content = '''from flask import Flask, jsonify
-import os
-
-app = Flask(__name__)
-
-@app.route('/')
-def home():
-    return jsonify({"message": "Gunicorn server running!", "server": "''' + name + '''"})
-
-@app.route('/health')
-def health():
-    return jsonify({"status": "healthy"})
-
-if __name__ == '__main__':
-    app.run()
-'''
-        else:  # python_bot
-            app_content = '''import os
-import time
-import json
-import asyncio
-import requests
-import threading
-from datetime import datetime
-from typing import Optional
-
-# Discord Bot Support
-try:
-    import discord
-    from discord.ext import commands, tasks
-    DISCORD_AVAILABLE = True
-except ImportError:
-    DISCORD_AVAILABLE = False
-    print("⚠️ Discord.py not installed. Install with: pip install discord.py")
-
-class PythonBot:
-    def __init__(self, name):
-        self.name = name
-        self.start_time = datetime.now()
-        self.is_running = True
-        self.discord_bot = None
-        self.discord_token = os.environ.get('DISCORD_TOKEN', '')
-        
-        print(f"🤖 {name} Bot initialized!")
-        print(f"🔧 Bot Type: Multi-Purpose Python Bot")
-        print(f"📡 Discord Support: {'✅ Available' if DISCORD_AVAILABLE else '❌ Not Available'}")
-    
-    def start(self):
-        print(f"🚀 {self.name} Bot starting...")
-        print(f"⏰ Started at: {self.start_time}")
-        print(f"📊 Status: Running")
-        
-        # Start Discord bot if token is available
-        if DISCORD_AVAILABLE and self.discord_token:
-            self.start_discord_bot()
-        
-        try:
-            while self.is_running:
-                # Bot main loop
-                current_time = datetime.now()
-                uptime = current_time - self.start_time
-                
-                # Bot logic here
-                self.process_tasks()
-                
-                # Sleep for a bit
-                time.sleep(5)
-                
-        except KeyboardInterrupt:
-            print(f"🛑 {self.name} Bot stopped by user")
-        except Exception as e:
-            print(f"❌ Error in {self.name} Bot: {str(e)}")
-        finally:
-            self.stop()
-    
-    def start_discord_bot(self):
-        """Start Discord bot in a separate thread"""
-        try:
-            self.discord_bot = DiscordBot(self.discord_token, self.name)
-            discord_thread = threading.Thread(target=self.discord_bot.run, args=(self.discord_token,))
-            discord_thread.daemon = True
-            discord_thread.start()
-            print(f"🎮 Discord Bot started successfully!")
-        except Exception as e:
-            print(f"❌ Failed to start Discord bot: {str(e)}")
-    
-    def process_tasks(self):
-        """Main bot task processing"""
-        current_time = datetime.now()
-        uptime = current_time - self.start_time
-        
-        print(f"[{current_time.strftime('%H:%M:%S')}] {self.name} Bot is running... (Uptime: {str(uptime).split('.')[0]})")
-        
-        # Add your bot logic here
-        # Example: Check for new messages, process data, etc.
-        
-        # Example: API monitoring
-        self.check_api_status()
-        
-        # Example: Data processing
-        self.process_data()
-        
-    def check_api_status(self):
-        """Example: Check API status"""
-        try:
-            # Example API check
-            response = requests.get('https://httpbin.org/status/200', timeout=5)
-            if response.status_code == 200:
-                print(f"✅ API Status: Healthy")
-        except Exception as e:
-            print(f"❌ API Status: Error - {str(e)}")
-    
-    def process_data(self):
-        """Example: Data processing task"""
-        # Add your data processing logic here
-        pass
-        
-    def stop(self):
-        """Stop the bot"""
-        self.is_running = False
-        if self.discord_bot:
-            asyncio.run(self.discord_bot.close())
-        print(f"🛑 {self.name} Bot stopping...")
-
-class DiscordBot(commands.Bot):
-    def __init__(self, token: str, bot_name: str):
-        intents = discord.Intents.default()
-        intents.message_content = True
-        intents.members = True
-        
-        super().__init__(command_prefix='!', intents=intents)
-        self.bot_name = bot_name
-        
-        # Register commands
-        self.setup_commands()
-    
-    def setup_commands(self):
-        """Setup Discord bot commands"""
-        
-        @self.command(name='ping')
-        async def ping(ctx):
-            """Check bot latency"""
-            latency = round(self.latency * 1000)
-            await ctx.send(f'🏓 Pong! Latency: {latency}ms')
-        
-        @self.command(name='status')
-        async def status(ctx):
-            """Show bot status"""
-            embed = discord.Embed(
-                title=f"🤖 {self.bot_name} Status",
-                description="Bot is running and healthy!",
-                color=discord.Color.green()
-            )
-            embed.add_field(name="Latency", value=f"{round(self.latency * 1000)}ms", inline=True)
-            embed.add_field(name="Servers", value=len(self.guilds), inline=True)
-            embed.add_field(name="Users", value=len(self.users), inline=True)
-            await ctx.send(embed=embed)
-        
-        @self.command(name='info')
-        async def info(ctx):
-            """Show bot information"""
-            embed = discord.Embed(
-                title=f"ℹ️ {self.bot_name} Information",
-                description="Multi-purpose Python Bot with Discord integration",
-                color=discord.Color.blue()
-            )
-            embed.add_field(name="Python Version", value=os.sys.version.split()[0], inline=True)
-            embed.add_field(name="Discord.py Version", value=discord.__version__, inline=True)
-            embed.add_field(name="Server Count", value=len(self.guilds), inline=True)
-            await ctx.send(embed=embed)
-        
-        @self.command(name='help')
-        async def help_cmd(ctx):
-            """Show available commands"""
-            embed = discord.Embed(
-                title="📚 Available Commands",
-                description="Here are the available commands:",
-                color=discord.Color.gold()
-            )
-            embed.add_field(name="!ping", value="Check bot latency", inline=False)
-            embed.add_field(name="!status", value="Show bot status", inline=False)
-            embed.add_field(name="!info", value="Show bot information", inline=False)
-            embed.add_field(name="!help", value="Show this help message", inline=False)
-            await ctx.send(embed=embed)
-    
-    async def on_ready(self):
-        """Called when bot is ready"""
-        print(f"🎮 Discord Bot logged in as {self.user}")
-        print(f"📡 Connected to {len(self.guilds)} servers")
-        
-        # Set bot status
-        await self.change_presence(
-            activity=discord.Activity(
-                type=discord.ActivityType.watching,
-                name=f"!help | {self.bot_name}"
-            )
-        )
-    
-    async def on_message(self, message):
-        """Handle incoming messages"""
-        if message.author == self.user:
-            return
-        
-        # Process commands
-        await self.process_commands(message)
-        
-        # Add custom message handling here
-        if message.content.lower().startswith('hello'):
-            await message.channel.send(f"👋 Hello {message.author.mention}!")
-
-if __name__ == '__main__':
-    bot_name = os.environ.get('SERVER_NAME', 'PythonBot')
-    bot = PythonBot(bot_name)
-    bot.start()
-'''
-        
-        # Write app file
-        with open(os.path.join(server_dir, app_file), 'w') as f:
-            f.write(app_content)
-        
-        # Create requirements.txt with basic dependencies
-        requirements_content = '''flask>=2.0.0
-requests>=2.25.0
-'''
+        domain = request.form.get('domain_name', '').strip()
+        enable_ssl = request.form.get('enable_ssl') == 'on'
+        enable_both = request.form.get('enable_both') == 'on'
+        gunicorn_command = None
+        gunicorn_command_https = None
+        ssl_cert = ''
+        ssl_key = ''
+        if server_type == 'gunicorn' and domain:
+            if enable_ssl:
+                ssl_cert = f'/etc/letsencrypt/live/{domain}/fullchain.pem'
+                ssl_key = f'/etc/letsencrypt/live/{domain}/privkey.pem'
+                gunicorn_command_https = f'gunicorn --bind 0.0.0.0:443 --certfile {ssl_cert} --keyfile {ssl_key} --workers 1 app_file:app'
+            if enable_both and enable_ssl:
+                gunicorn_command = f'gunicorn --bind 0.0.0.0:80 --workers 1 app_file:app'
+            elif enable_ssl:
+                gunicorn_command = gunicorn_command_https
+            else:
+                gunicorn_command = f'gunicorn --bind {host}:{port} --workers 1 app_file:app'
+        # Save server with extra info
+        server = server_manager.create_flask_server(name, host, port, 'app_file', server_type)
+        # --- NGINX + SSL AUTO SETUP ---
+        if server_type == 'gunicorn' and domain:
+            try:
+                certbot_success, certbot_output = setup_nginx_and_ssl(domain, port, enable_ssl, enable_both)
+                if enable_ssl:
+                    if certbot_success:
+                        flash(f'SSL certificate installed successfully for {domain}!', 'success')
+                    else:
+                        flash(f'Certbot failed for {domain}: {certbot_output}', 'error')
+                elif certbot_output:
+                    flash(certbot_output, 'info')
+            except Exception as e:
+                flash(f'Nginx/SSL setup error: {str(e)}', 'error')
+        # --- END NGINX + SSL AUTO SETUP ---
         if server_type == 'gunicorn':
-            requirements_content += 'gunicorn>=20.0.0\n'
-        elif server_type == 'python_bot':
-            requirements_content = '''requests>=2.25.0
-python-dotenv>=0.19.0
-schedule>=1.1.0
-discord.py>=2.0.0
-aiohttp>=3.8.0
-asyncio
-threading
-datetime
-json
-os
-time
-typing
-'''
-        
-        with open(os.path.join(server_dir, 'requirements.txt'), 'w') as f:
-            f.write(requirements_content)
-        
-        # Install packages from requirements.txt
-        try:
-            self.install_server_dependencies(name)
-        except Exception as e:
-            flash(f'Warning: Could not install dependencies: {str(e)}', 'warning')
-        
-        # Create server
-        server_manager.create_flask_server(name, host, port, app_file, server_type)
+            server['domain'] = domain
+            server['ssl_enabled'] = enable_ssl
+            server['ssl_cert'] = ssl_cert
+            server['ssl_key'] = ssl_key
+            server['enable_both'] = enable_both
+            if enable_both and enable_ssl:
+                server['command_http'] = gunicorn_command
+                server['command_https'] = gunicorn_command_https
+                server['command'] = gunicorn_command_https
+            else:
+                server['command'] = gunicorn_command
+            server_manager.save_servers()
         flash(f'Server "{name}" created successfully', 'success')
         return redirect(url_for('dashboard'))
     
@@ -682,6 +545,11 @@ def delete_server(name):
         # Stop server if running
         if server_manager.servers[name]['status'] == 'running':
             server_manager.stop_server(name)
+        
+        # Remove Nginx config and SSL if Gunicorn with domain
+        server = server_manager.servers[name]
+        if server.get('server_type') == 'gunicorn' and server.get('domain'):
+            cleanup_nginx_and_ssl(server['domain'], server.get('ssl_enabled', False))
         
         # Remove server directory
         server_dir = os.path.join('servers', name)
@@ -816,807 +684,15 @@ def install_dependencies(name):
     if name not in server_manager.servers:
         return jsonify({'error': 'Server not found'}), 404
     
-    success, message = server_manager.install_server_dependencies(name)
+    data = request.get_json()
+    requirements_file = data.get('requirements_file', 'requirements.txt')
+    
+    success, message = server_manager.install_server_dependencies(name, requirements_file)
     if success:
         return jsonify({'success': True, 'message': message})
     else:
         return jsonify({'error': message}), 500
 
-# File Manager Routes
-@app.route('/file_manager')
-@app.route('/file_manager/<path:path>')
-def file_manager(path='.'):
-    if 'username' not in session:
-        return redirect(url_for('login'))
-    
-    # Security: prevent directory traversal
-    if '..' in path or path.startswith('/'):
-        flash('Invalid path', 'error')
-        return redirect(url_for('file_manager'))
-    
-    # Get absolute path
-    base_dir = os.path.abspath('.')
-    current_path = os.path.abspath(os.path.join(base_dir, path))
-    
-    # Security: ensure path is within base directory
-    if not current_path.startswith(base_dir):
-        flash('Access denied', 'error')
-        return redirect(url_for('file_manager'))
-    
-    # Handle actions
-    action = request.args.get('action')
-    if action == 'download' and os.path.isfile(current_path):
-        return send_file(current_path, as_attachment=True)
-    
-    # Get directory contents
-    try:
-        if os.path.isdir(current_path):
-            files = []
-            for item in os.listdir(current_path):
-                item_path = os.path.join(current_path, item)
-                rel_path = os.path.relpath(item_path, base_dir)
-                
-                if os.path.isdir(item_path):
-                    files.append({
-                        'name': item,
-                        'path': rel_path,
-                        'is_dir': True,
-                        'size': ''
-                    })
-                else:
-                    size = os.path.getsize(item_path)
-                    files.append({
-                        'name': item,
-                        'path': rel_path,
-                        'is_dir': False,
-                        'size': f"{size:,} bytes"
-                    })
-            
-            # Sort: directories first, then files
-            files.sort(key=lambda x: (not x['is_dir'], x['name'].lower()))
-            
-            return render_template('file_manager.html',
-                                 username=session['username'],
-                                 current_path=path,
-                                 files=files)
-        else:
-            flash('Not a directory', 'error')
-            return redirect(url_for('file_manager'))
-            
-    except Exception as e:
-        flash(f'Error accessing directory: {str(e)}', 'error')
-        return redirect(url_for('file_manager'))
-
-# Root File Manager Routes - Full System Access
-@app.route('/root_file_manager')
-@app.route('/root_file_manager/<path:path>')
-def root_file_manager(path='.'):
-    if 'username' not in session:
-        return redirect(url_for('login'))
-    
-    # Get absolute path - allow full system access
-    if path == '.':
-        current_path = os.path.abspath('.')
-    else:
-        current_path = os.path.abspath(path)
-    
-    # Handle actions
-    action = request.args.get('action')
-    if action == 'download' and os.path.isfile(current_path):
-        return send_file(current_path, as_attachment=True)
-    
-    # Get directory contents
-    try:
-        if os.path.isdir(current_path):
-            files = []
-            for item in os.listdir(current_path):
-                item_path = os.path.join(current_path, item)
-                
-                if os.path.isdir(item_path):
-                    files.append({
-                        'name': item,
-                        'path': item_path,
-                        'is_dir': True,
-                        'size': ''
-                    })
-                else:
-                    try:
-                        size = os.path.getsize(item_path)
-                        files.append({
-                            'name': item,
-                            'path': item_path,
-                            'is_dir': False,
-                            'size': f"{size:,} bytes"
-                        })
-                    except OSError:
-                        # Skip files we can't access
-                        continue
-            
-            # Sort: directories first, then files
-            files.sort(key=lambda x: (not x['is_dir'], x['name'].lower()))
-            
-            return render_template('root_file_manager.html',
-                                 username=session['username'],
-                                 current_path=current_path,
-                                 files=files)
-        else:
-            flash('Not a directory', 'error')
-            return redirect(url_for('root_file_manager'))
-            
-    except PermissionError:
-        flash('Permission denied accessing directory', 'error')
-        return redirect(url_for('root_file_manager'))
-    except Exception as e:
-        flash(f'Error accessing directory: {str(e)}', 'error')
-        return redirect(url_for('root_file_manager'))
-
-@app.route('/api/file_action', methods=['POST'])
-def file_action():
-    if 'username' not in session:
-        return jsonify({'error': 'Unauthorized'}), 401
-    
-    data = request.get_json()
-    action = data.get('action')
-    path = data.get('path')
-    
-    if not path or '..' in path or path.startswith('/'):
-        return jsonify({'error': 'Invalid path'}), 400
-    
-    try:
-        if action == 'delete':
-            if os.path.isdir(path):
-                import shutil
-                shutil.rmtree(path)
-            else:
-                os.remove(path)
-            return jsonify({'success': True})
-        
-        elif action == 'rename':
-            new_name = data.get('new_name')
-            if not new_name:
-                return jsonify({'error': 'New name required'}), 400
-            
-            new_path = os.path.join(os.path.dirname(path), new_name)
-            os.rename(path, new_path)
-            return jsonify({'success': True})
-        
-        elif action == 'create_folder':
-            folder_name = data.get('folder_name')
-            if not folder_name:
-                return jsonify({'error': 'Folder name required'}), 400
-            
-            new_folder = os.path.join(path, folder_name)
-            os.makedirs(new_folder, exist_ok=True)
-            return jsonify({'success': True})
-        
-        else:
-            return jsonify({'error': 'Invalid action'}), 400
-            
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/root_file_action', methods=['POST'])
-def root_file_action():
-    if 'username' not in session:
-        return jsonify({'error': 'Unauthorized'}), 401
-    
-    data = request.get_json()
-    action = data.get('action')
-    path = data.get('path')
-    
-    if not path:
-        return jsonify({'error': 'Path required'}), 400
-    
-    try:
-        if action == 'delete':
-            if os.path.isdir(path):
-                import shutil
-                shutil.rmtree(path)
-            else:
-                os.remove(path)
-            return jsonify({'success': True})
-        
-        elif action == 'rename':
-            new_name = data.get('new_name')
-            if not new_name:
-                return jsonify({'error': 'New name required'}), 400
-            
-            new_path = os.path.join(os.path.dirname(path), new_name)
-            os.rename(path, new_path)
-            return jsonify({'success': True})
-        
-        elif action == 'create_folder':
-            folder_name = data.get('folder_name')
-            if not folder_name:
-                return jsonify({'error': 'Folder name required'}), 400
-            
-            new_folder = os.path.join(path, folder_name)
-            os.makedirs(new_folder, exist_ok=True)
-            return jsonify({'success': True})
-        
-        else:
-            return jsonify({'error': 'Invalid action'}), 400
-            
-    except PermissionError:
-        return jsonify({'error': 'Permission denied'}), 403
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-# Additional File Manager Routes
-@app.route('/upload_file', methods=['POST'])
-def upload_file():
-    if 'username' not in session:
-        return redirect(url_for('login'))
-    
-    if 'file' not in request.files:
-        flash('No file selected', 'error')
-        return redirect(url_for('file_manager'))
-    
-    file = request.files['file']
-    path = request.form.get('path', '.')
-    
-    if file.filename == '':
-        flash('No file selected', 'error')
-        return redirect(url_for('file_manager', path=path))
-    
-    if file:
-        filename = secure_filename(file.filename)
-        upload_path = os.path.join(path, filename)
-        
-        # Security: prevent directory traversal
-        if '..' in upload_path or upload_path.startswith('/'):
-            flash('Invalid path', 'error')
-            return redirect(url_for('file_manager', path=path))
-        
-        try:
-            # Ensure the directory exists
-            upload_dir = os.path.dirname(upload_path) if os.path.dirname(upload_path) else '.'
-            if upload_dir != '.' and not os.path.exists(upload_dir):
-                os.makedirs(upload_dir, exist_ok=True)
-            
-            file.save(upload_path)
-            flash(f'File "{filename}" uploaded successfully to {upload_path}', 'success')
-        except PermissionError:
-            flash('Permission denied uploading file - Check directory permissions', 'error')
-        except OSError as e:
-            flash(f'OS Error uploading file: {str(e)}', 'error')
-        except Exception as e:
-            flash(f'Error uploading file: {str(e)}', 'error')
-    
-    return redirect(url_for('file_manager', path=path))
-
-@app.route('/root_upload_file', methods=['POST'])
-def root_upload_file():
-    if 'username' not in session:
-        return redirect(url_for('login'))
-    
-    if 'file' not in request.files:
-        flash('No file selected', 'error')
-        return redirect(url_for('root_file_manager'))
-    
-    file = request.files['file']
-    path = request.form.get('path', '.')
-    
-    if file.filename == '':
-        flash('No file selected', 'error')
-        return redirect(url_for('root_file_manager', path=path))
-    
-    if file:
-        filename = secure_filename(file.filename)
-        
-        # Handle path properly for root file manager
-        if path == '.':
-            upload_path = filename
-        else:
-            upload_path = os.path.join(path, filename)
-        
-        try:
-            # Ensure the directory exists
-            upload_dir = os.path.dirname(upload_path) if os.path.dirname(upload_path) else '.'
-            if upload_dir != '.' and not os.path.exists(upload_dir):
-                os.makedirs(upload_dir, exist_ok=True)
-            
-            file.save(upload_path)
-            flash(f'File "{filename}" uploaded successfully to {upload_path}', 'success')
-        except PermissionError:
-            flash('Permission denied uploading file - Check directory permissions', 'error')
-        except OSError as e:
-            flash(f'OS Error uploading file: {str(e)}', 'error')
-        except Exception as e:
-            flash(f'Error uploading file: {str(e)}', 'error')
-    
-    return redirect(url_for('root_file_manager', path=path))
-
-@app.route('/create_folder', methods=['POST'])
-def create_folder():
-    if 'username' not in session:
-        return redirect(url_for('login'))
-    
-    folder_name = request.form.get('folder_name')
-    path = request.form.get('path', '.')
-    
-    if not folder_name:
-        flash('Folder name required', 'error')
-        return redirect(url_for('file_manager', path=path))
-    
-    # Security: prevent directory traversal
-    if '..' in folder_name or '/' in folder_name:
-        flash('Invalid folder name', 'error')
-        return redirect(url_for('file_manager', path=path))
-    
-    try:
-        new_folder = os.path.join(path, folder_name)
-        os.makedirs(new_folder, exist_ok=True)
-        flash(f'Folder "{folder_name}" created successfully', 'success')
-    except Exception as e:
-        flash(f'Error creating folder: {str(e)}', 'error')
-    
-    return redirect(url_for('file_manager', path=path))
-
-@app.route('/root_create_folder', methods=['POST'])
-def root_create_folder():
-    if 'username' not in session:
-        return redirect(url_for('login'))
-    
-    folder_name = request.form.get('folder_name')
-    path = request.form.get('path', '.')
-    
-    if not folder_name:
-        flash('Folder name required', 'error')
-        return redirect(url_for('root_file_manager', path=path))
-    
-    try:
-        new_folder = os.path.join(path, folder_name)
-        os.makedirs(new_folder, exist_ok=True)
-        flash(f'Folder "{folder_name}" created successfully', 'success')
-    except PermissionError:
-        flash('Permission denied creating folder', 'error')
-    except Exception as e:
-        flash(f'Error creating folder: {str(e)}', 'error')
-    
-    return redirect(url_for('root_file_manager', path=path))
-
-@app.route('/move_file', methods=['POST'])
-def move_file():
-    if 'username' not in session:
-        return redirect(url_for('login'))
-    
-    source_path = request.form.get('source_path')
-    destination_path = request.form.get('destination_path')
-    current_path = request.form.get('current_path', '.')
-    
-    if not source_path or not destination_path:
-        flash('Source and destination paths required', 'error')
-        return redirect(url_for('file_manager', path=current_path))
-    
-    # Security: prevent directory traversal
-    if '..' in source_path or '..' in destination_path:
-        flash('Invalid path', 'error')
-        return redirect(url_for('file_manager', path=current_path))
-    
-    try:
-        import shutil
-        shutil.move(source_path, destination_path)
-        flash('File moved successfully', 'success')
-    except Exception as e:
-        flash(f'Error moving file: {str(e)}', 'error')
-    
-    return redirect(url_for('file_manager', path=current_path))
-
-@app.route('/delete_file')
-def delete_file():
-    if 'username' not in session:
-        return redirect(url_for('login'))
-    
-    path = request.args.get('path')
-    if not path:
-        flash('Path required', 'error')
-        return redirect(url_for('file_manager'))
-    
-    # Security: prevent directory traversal
-    if '..' in path or path.startswith('/'):
-        flash('Invalid path', 'error')
-        return redirect(url_for('file_manager'))
-    
-    try:
-        if os.path.isdir(path):
-            import shutil
-            shutil.rmtree(path)
-            flash('Folder deleted successfully', 'success')
-        else:
-            os.remove(path)
-            flash('File deleted successfully', 'success')
-    except Exception as e:
-        flash(f'Error deleting: {str(e)}', 'error')
-    
-    return redirect(url_for('file_manager'))
-
-@app.route('/root_delete_file')
-def root_delete_file():
-    if 'username' not in session:
-        return redirect(url_for('login'))
-    
-    path = request.args.get('path')
-    if not path:
-        flash('Path required', 'error')
-        return redirect(url_for('root_file_manager'))
-    
-    try:
-        if os.path.isdir(path):
-            import shutil
-            shutil.rmtree(path)
-            flash('Folder deleted successfully', 'success')
-        else:
-            os.remove(path)
-            flash('File deleted successfully', 'success')
-    except PermissionError:
-        flash('Permission denied deleting file/folder', 'error')
-    except Exception as e:
-        flash(f'Error deleting: {str(e)}', 'error')
-    
-    return redirect(url_for('root_file_manager'))
-
-@app.route('/rename_file', methods=['POST'])
-def rename_file():
-    if 'username' not in session:
-        return redirect(url_for('login'))
-    
-    old_path = request.form.get('old_path')
-    new_name = request.form.get('new_name')
-    current_path = request.form.get('current_path', '.')
-    
-    if not old_path or not new_name:
-        flash('Old path and new name required', 'error')
-        return redirect(url_for('file_manager', path=current_path))
-    
-    # Security: prevent directory traversal
-    if '..' in old_path or '..' in new_name or '/' in new_name:
-        flash('Invalid path or name', 'error')
-        return redirect(url_for('file_manager', path=current_path))
-    
-    try:
-        new_path = os.path.join(os.path.dirname(old_path), new_name)
-        os.rename(old_path, new_path)
-        flash('File renamed successfully', 'success')
-    except Exception as e:
-        flash(f'Error renaming file: {str(e)}', 'error')
-    
-    return redirect(url_for('file_manager', path=current_path))
-
-@app.route('/unarchive_file')
-def unarchive_file():
-    if 'username' not in session:
-        return redirect(url_for('login'))
-    
-    path = request.args.get('path')
-    current_path = request.args.get('current_path', '.')
-    
-    if not path:
-        flash('Path required', 'error')
-        return redirect(url_for('file_manager', path=current_path))
-    
-    # Security: prevent directory traversal
-    if '..' in path or path.startswith('/'):
-        flash('Invalid path', 'error')
-        return redirect(url_for('file_manager', path=current_path))
-    
-    try:
-        # Get absolute path for the archive file
-        if current_path == '.':
-            archive_path = path
-        else:
-            archive_path = os.path.join(current_path, path)
-        
-        # Check if file exists
-        if not os.path.exists(archive_path):
-            flash(f'Archive file not found: {archive_path}', 'error')
-            return redirect(url_for('file_manager', path=current_path))
-        
-        # Create extraction directory with archive name
-        archive_name = os.path.splitext(os.path.basename(path))[0]
-        if archive_name.endswith('.tar'):
-            archive_name = archive_name[:-4]  # Remove .tar from .tar.gz
-        
-        extract_dir = os.path.join(os.path.dirname(archive_path), archive_name)
-        
-        # Check if extraction directory already exists
-        if os.path.exists(extract_dir):
-            flash(f'Extraction directory already exists: {archive_name}', 'error')
-            return redirect(url_for('file_manager', path=current_path))
-        
-        # Extract based on file extension
-        if path.endswith('.zip'):
-            with zipfile.ZipFile(archive_path, 'r') as zip_ref:
-                zip_ref.extractall(extract_dir)
-            flash(f'ZIP archive extracted to: {archive_name}', 'success')
-        elif path.endswith(('.tar.gz', '.tgz')):
-            import tarfile
-            with tarfile.open(archive_path, 'r:gz') as tar_ref:
-                tar_ref.extractall(extract_dir)
-            flash(f'TAR.GZ archive extracted to: {archive_name}', 'success')
-        elif path.endswith('.rar'):
-            # For RAR files, we'll use unrar if available
-            try:
-                import subprocess
-                result = subprocess.run(['unrar', 'x', archive_path, extract_dir], 
-                                      capture_output=True, text=True, timeout=30)
-                if result.returncode == 0:
-                    flash(f'RAR archive extracted to: {archive_name}', 'success')
-                else:
-                    flash('Failed to extract RAR file. Make sure unrar is installed.', 'error')
-            except FileNotFoundError:
-                flash('RAR extraction requires unrar to be installed on the system', 'error')
-        else:
-            flash('Unsupported archive format. Supported: .zip, .tar.gz, .tgz, .rar', 'error')
-    except PermissionError:
-        flash('Permission denied extracting archive', 'error')
-    except Exception as e:
-        flash(f'Error extracting archive: {str(e)}', 'error')
-    
-    return redirect(url_for('file_manager', path=current_path))
-
-@app.route('/root_unarchive_file')
-def root_unarchive_file():
-    if 'username' not in session:
-        return redirect(url_for('login'))
-    
-    path = request.args.get('path')
-    current_path = request.args.get('current_path', '.')
-    
-    if not path:
-        flash('Path required', 'error')
-        return redirect(url_for('root_file_manager', path=current_path))
-    
-    try:
-        # Get absolute path for the archive file
-        if current_path == '.':
-            archive_path = path
-        else:
-            archive_path = os.path.join(current_path, path)
-        
-        # Check if file exists
-        if not os.path.exists(archive_path):
-            flash(f'Archive file not found: {archive_path}', 'error')
-            return redirect(url_for('root_file_manager', path=current_path))
-        
-        # Create extraction directory with archive name
-        archive_name = os.path.splitext(os.path.basename(path))[0]
-        if archive_name.endswith('.tar'):
-            archive_name = archive_name[:-4]  # Remove .tar from .tar.gz
-        
-        extract_dir = os.path.join(os.path.dirname(archive_path), archive_name)
-        
-        # Check if extraction directory already exists
-        if os.path.exists(extract_dir):
-            flash(f'Extraction directory already exists: {archive_name}', 'error')
-            return redirect(url_for('root_file_manager', path=current_path))
-        
-        # Extract based on file extension
-        if path.endswith('.zip'):
-            with zipfile.ZipFile(archive_path, 'r') as zip_ref:
-                zip_ref.extractall(extract_dir)
-            flash(f'ZIP archive extracted to: {archive_name}', 'success')
-        elif path.endswith(('.tar.gz', '.tgz')):
-            import tarfile
-            with tarfile.open(archive_path, 'r:gz') as tar_ref:
-                tar_ref.extractall(extract_dir)
-            flash(f'TAR.GZ archive extracted to: {archive_name}', 'success')
-        elif path.endswith('.rar'):
-            # For RAR files, we'll use unrar if available
-            try:
-                import subprocess
-                result = subprocess.run(['unrar', 'x', archive_path, extract_dir], 
-                                      capture_output=True, text=True, timeout=30)
-                if result.returncode == 0:
-                    flash(f'RAR archive extracted to: {archive_name}', 'success')
-                else:
-                    flash('Failed to extract RAR file. Make sure unrar is installed.', 'error')
-            except FileNotFoundError:
-                flash('RAR extraction requires unrar to be installed on the system', 'error')
-        else:
-            flash('Unsupported archive format. Supported: .zip, .tar.gz, .tgz, .rar', 'error')
-    except PermissionError:
-        flash('Permission denied extracting archive', 'error')
-    except Exception as e:
-        flash(f'Error extracting archive: {str(e)}', 'error')
-    
-    return redirect(url_for('root_file_manager', path=current_path))
-
-@app.route('/server_unarchive_file/<name>')
-def server_unarchive_file(name):
-    if 'username' not in session:
-        return redirect(url_for('login'))
-    
-    if name not in server_manager.servers:
-        flash('Server not found', 'error')
-        return redirect(url_for('dashboard'))
-    
-    path = request.args.get('path')
-    current_path = request.args.get('current_path', '.')
-    
-    if not path:
-        flash('Path required', 'error')
-        return redirect(url_for('server_file_manager', name=name, path=current_path))
-    
-    # Security: prevent directory traversal
-    if '..' in path or path.startswith('/'):
-        flash('Invalid path', 'error')
-        return redirect(url_for('server_file_manager', name=name, path=current_path))
-    
-    try:
-        server_dir = os.path.join('servers', name)
-        full_path = os.path.join(server_dir, path)
-        
-        if not full_path.startswith(os.path.abspath(server_dir)):
-            flash('Access denied', 'error')
-            return redirect(url_for('server_file_manager', name=name, path=current_path))
-        
-        # Create extraction directory with archive name
-        archive_name = os.path.splitext(os.path.basename(path))[0]
-        if archive_name.endswith('.tar'):
-            archive_name = archive_name[:-4]  # Remove .tar from .tar.gz
-        
-        extract_dir = os.path.join(os.path.dirname(full_path), archive_name)
-        
-        # Check if extraction directory already exists
-        if os.path.exists(extract_dir):
-            flash(f'Extraction directory already exists: {archive_name}', 'error')
-            return redirect(url_for('server_file_manager', name=name, path=current_path))
-        
-        if path.endswith('.zip'):
-            with zipfile.ZipFile(full_path, 'r') as zip_ref:
-                zip_ref.extractall(extract_dir)
-            flash(f'ZIP archive extracted to: {archive_name}', 'success')
-        elif path.endswith(('.tar.gz', '.tgz')):
-            import tarfile
-            with tarfile.open(full_path, 'r:gz') as tar_ref:
-                tar_ref.extractall(extract_dir)
-            flash(f'TAR.GZ archive extracted to: {archive_name}', 'success')
-        elif path.endswith('.rar'):
-            # For RAR files, we'll use unrar if available, otherwise show a message
-            try:
-                import subprocess
-                result = subprocess.run(['unrar', 'x', full_path, os.path.dirname(full_path)], 
-                                      capture_output=True, text=True, timeout=30)
-                if result.returncode == 0:
-                    flash('RAR archive extracted successfully', 'success')
-                else:
-                    flash('Failed to extract RAR file. Make sure unrar is installed.', 'error')
-            except FileNotFoundError:
-                flash('RAR extraction requires unrar to be installed on the system', 'error')
-        else:
-            flash('Unsupported archive format. Supported: .zip, .tar.gz, .tgz, .rar', 'error')
-    except Exception as e:
-        flash(f'Error extracting archive: {str(e)}', 'error')
-    
-    return redirect(url_for('server_file_manager', name=name, path=current_path))
-
-# Cleanup extracted directories
-@app.route('/cleanup_extracted/<name>')
-def cleanup_extracted(name):
-    if 'username' not in session:
-        return redirect(url_for('login'))
-    
-    if name not in server_manager.servers:
-        flash('Server not found', 'error')
-        return redirect(url_for('dashboard'))
-    
-    current_path = request.args.get('current_path', '.')
-    
-    try:
-        server_dir = os.path.join('servers', name)
-        base_dir = os.path.abspath(server_dir)
-        current_abs_path = os.path.abspath(os.path.join(base_dir, current_path))
-        
-        # Security: ensure path is within server directory
-        if not current_abs_path.startswith(base_dir):
-            flash('Access denied', 'error')
-            return redirect(url_for('server_file_manager', name=name, path=current_path))
-        
-        # Find and remove extracted directories
-        cleaned_count = 0
-        for item in os.listdir(current_abs_path):
-            item_path = os.path.join(current_abs_path, item)
-            if os.path.isdir(item_path):
-                # Check if this looks like an extracted directory (contains files but no subdirectories)
-                try:
-                    contents = os.listdir(item_path)
-                    if contents and not any(os.path.isdir(os.path.join(item_path, content)) for content in contents):
-                        import shutil
-                        shutil.rmtree(item_path)
-                        cleaned_count += 1
-                except:
-                    pass
-        
-        if cleaned_count > 0:
-            flash(f'Cleaned up {cleaned_count} extracted directories', 'success')
-        else:
-            flash('No extracted directories found to clean up', 'info')
-            
-    except Exception as e:
-        flash(f'Error cleaning up: {str(e)}', 'error')
-    
-    return redirect(url_for('server_file_manager', name=name, path=current_path))
-
-@app.route('/cleanup_extracted_root')
-def cleanup_extracted_root():
-    if 'username' not in session:
-        return redirect(url_for('login'))
-    
-    current_path = request.args.get('current_path', '.')
-    
-    try:
-        # Get absolute path
-        if current_path == '.':
-            current_abs_path = os.path.abspath('.')
-        else:
-            current_abs_path = os.path.abspath(current_path)
-        
-        # Find and remove extracted directories
-        cleaned_count = 0
-        for item in os.listdir(current_abs_path):
-            item_path = os.path.join(current_abs_path, item)
-            if os.path.isdir(item_path):
-                # Check if this looks like an extracted directory (contains files but no subdirectories)
-                try:
-                    contents = os.listdir(item_path)
-                    if contents and not any(os.path.isdir(os.path.join(item_path, content)) for content in contents):
-                        import shutil
-                        shutil.rmtree(item_path)
-                        cleaned_count += 1
-                except:
-                    pass
-        
-        if cleaned_count > 0:
-            flash(f'Cleaned up {cleaned_count} extracted directories', 'success')
-        else:
-            flash('No extracted directories found to clean up', 'info')
-            
-    except Exception as e:
-        flash(f'Error cleaning up: {str(e)}', 'error')
-    
-    return redirect(url_for('root_file_manager', path=current_path))
-
-@app.route('/cleanup_extracted_files')
-def cleanup_extracted_files():
-    if 'username' not in session:
-        return redirect(url_for('login'))
-    
-    current_path = request.args.get('current_path', '.')
-    
-    try:
-        # Get absolute path
-        if current_path == '.':
-            current_abs_path = os.path.abspath('.')
-        else:
-            current_abs_path = os.path.abspath(current_path)
-        
-        # Find and remove extracted directories
-        cleaned_count = 0
-        for item in os.listdir(current_abs_path):
-            item_path = os.path.join(current_abs_path, item)
-            if os.path.isdir(item_path):
-                # Check if this looks like an extracted directory (contains files but no subdirectories)
-                try:
-                    contents = os.listdir(item_path)
-                    if contents and not any(os.path.isdir(os.path.join(item_path, content)) for content in contents):
-                        import shutil
-                        shutil.rmtree(item_path)
-                        cleaned_count += 1
-                except:
-                    pass
-        
-        if cleaned_count > 0:
-            flash(f'Cleaned up {cleaned_count} extracted directories', 'success')
-        else:
-            flash('No extracted directories found to clean up', 'info')
-            
-    except Exception as e:
-        flash(f'Error cleaning up: {str(e)}', 'error')
-    
-    return redirect(url_for('file_manager', path=current_path))
-
-# Server File Manager Routes
 @app.route('/server_file_manager/<name>')
 @app.route('/server_file_manager/<name>/<path:path>')
 def server_file_manager(name, path='.'):
@@ -2153,20 +1229,25 @@ def backup_server(name):
         import shutil
         import zipfile
         from datetime import datetime
-        
+        data = request.get_json(silent=True) or {}
+        custom_name = data.get('backup_name', '').strip() if data else ''
         server_dir = os.path.join('servers', name)
         if not os.path.exists(server_dir):
             return jsonify({'error': 'Server directory not found'}), 404
-        
         # Create backup directory
         backup_dir = 'backups'
         os.makedirs(backup_dir, exist_ok=True)
-        
-        # Create backup filename with timestamp
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        backup_filename = f'{name}_backup_{timestamp}.zip'
+        # Use custom name if provided and valid
+        if custom_name and all(c.isalnum() or c in ('-', '_') for c in custom_name):
+            backup_filename = f'{custom_name}.zip'
+        else:
+            # fallback to default
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            backup_filename = f'{name}_backup_{timestamp}.zip'
         backup_path = os.path.join(backup_dir, backup_filename)
-        
+        # Ensure only one backup is created
+        if os.path.exists(backup_path):
+            return jsonify({'error': 'A backup with this name already exists.'}), 400
         # Create zip backup
         with zipfile.ZipFile(backup_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
             for root, dirs, files in os.walk(server_dir):
@@ -2174,9 +1255,7 @@ def backup_server(name):
                     file_path = os.path.join(root, file)
                     arcname = os.path.relpath(file_path, server_dir)
                     zipf.write(file_path, arcname)
-        
         backup_size = os.path.getsize(backup_path)
-        
         return jsonify({
             'success': True,
             'message': f'Server {name} backed up successfully',
@@ -2353,6 +1432,223 @@ def read_log(name, filename):
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+@app.route('/manage/<name>')
+def manage_server(name):
+    if 'username' not in session:
+        return redirect(url_for('login'))
+    if name not in server_manager.servers:
+        flash('Server not found', 'error')
+        return redirect(url_for('dashboard'))
+    server = server_manager.servers[name]
+    return render_template('manage_server.html', username=session['username'], server_name=name, server=server)
+
+@app.route('/api/files/<name>')
+def get_files(name):
+    if 'username' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    if name not in server_manager.servers:
+        return jsonify({'error': 'Server not found'}), 404
+    
+    path = request.args.get('path', '/')
+    
+    # Remove /Root prefix if present
+    path = path.replace('/Root', '')
+    
+    # Security: prevent directory traversal
+    if '..' in path:
+        return jsonify({'error': 'Invalid path'}), 400
+    
+    # Get server directory
+    server_dir = os.path.join('servers', name)
+    if not os.path.exists(server_dir):
+        return jsonify({'error': 'Server directory not found'}), 404
+    
+    # Get absolute path within server directory
+    base_dir = os.path.abspath(server_dir)
+    
+    # Remove /servers/server_name from path if present
+    path = path.replace(f'/servers/{name}', '')
+    
+    # Get the target directory
+    target_path = os.path.abspath(os.path.join(base_dir, path.lstrip('/')))
+    
+    # Security: ensure path is within server directory
+    if not target_path.startswith(base_dir):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    try:
+        files = []
+        for item in os.listdir(target_path):
+            item_path = os.path.join(target_path, item)
+            rel_path = os.path.relpath(item_path, base_dir)
+            
+            if os.path.isdir(item_path):
+                files.append({
+                    'name': item,
+                    'path': rel_path,
+                    'is_dir': True,
+                    'size': ''
+                })
+            else:
+                size = os.path.getsize(item_path)
+                files.append({
+                    'name': item,
+                    'path': rel_path,
+                    'is_dir': False,
+                    'size': f"{size:,} bytes"
+                })
+        
+        # Sort: directories first, then files
+        files.sort(key=lambda x: (not x['is_dir'], x['name'].lower()))
+        
+        return jsonify({
+            'files': files,
+            'current_path': path
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/read_requirements/<name>')
+def read_requirements(name):
+    if 'username' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    if name not in server_manager.servers:
+        return jsonify({'error': 'Server not found'}), 404
+    
+    filename = request.args.get('filename', 'requirements.txt')
+    server_dir = os.path.join('servers', name)
+    requirements_file = os.path.join(server_dir, filename)
+    
+    try:
+        if os.path.exists(requirements_file):
+            with open(requirements_file, 'r') as f:
+                content = f.read()
+            return jsonify({'success': True, 'content': content})
+        else:
+            return jsonify({'success': True, 'content': ''})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/save_settings/<name>', methods=['POST'])
+def save_settings(name):
+    if 'username' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    if name not in server_manager.servers:
+        return jsonify({'error': 'Server not found'}), 404
+    
+    data = request.get_json()
+    new_name = data.get('new_name', name).strip()
+    new_port = data.get('new_port')
+    startup_command = data.get('startup_command')
+    
+    try:
+        server = server_manager.servers[name]
+        reload_needed = False
+        # Handle rename
+        if new_name and new_name != name:
+            # Check if new name already exists
+            if new_name in server_manager.servers:
+                return jsonify({'error': 'A server with that name already exists.'}), 400
+            # Rename server directory
+            old_dir = os.path.join('servers', name)
+            new_dir = os.path.join('servers', new_name)
+            if os.path.exists(old_dir):
+                os.rename(old_dir, new_dir)
+            # Update server object and key
+            server['name'] = new_name
+            server_manager.servers[new_name] = server
+            del server_manager.servers[name]
+            name = new_name
+            reload_needed = True
+        # Handle port change
+        if new_port:
+            try:
+                server['port'] = int(new_port)
+            except Exception:
+                return jsonify({'error': 'Invalid port'}), 400
+        # Update startup command if provided
+        if startup_command:
+            server['command'] = startup_command
+        server_manager.save_servers()
+        return jsonify({'success': True, 'reload': reload_needed})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/test_startup/<name>', methods=['POST'])
+def test_startup(name):
+    if 'username' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    if name not in server_manager.servers:
+        return jsonify({'error': 'Server not found'}), 404
+    
+    data = request.get_json()
+    command = data.get('command')
+    
+    if not command:
+        return jsonify({'error': 'No command provided'}), 400
+    
+    try:
+        # Get server directory
+        server_dir = os.path.join('servers', name)
+        if not os.path.exists(server_dir):
+            return jsonify({'error': 'Server directory not found'}), 404
+        
+        # Set up environment
+        env = os.environ.copy()
+        env['PORT'] = str(server_manager.servers[name]['port'])
+        env['HOST'] = server_manager.servers[name].get('actual_host', '0.0.0.0')
+        env['SERVER_NAME'] = name
+        
+        # Try to run the command with a short timeout
+        process = subprocess.Popen(
+            command.split(),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            cwd=server_dir,
+            env=env
+        )
+        
+        try:
+            # Wait for a short time to see if the command starts
+            output, _ = process.communicate(timeout=2)
+            if process.returncode == 0:
+                return jsonify({'success': True, 'message': 'Command test successful'})
+            else:
+                return jsonify({'error': f'Command failed with exit code: {process.returncode}\nOutput: {output}'})
+        except subprocess.TimeoutExpired:
+            # If we timeout, it might mean the server started successfully
+            process.kill()
+            return jsonify({'success': True, 'message': 'Command appears to start the server successfully'})
+            
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/delete_backup', methods=['POST'])
+def delete_backup():
+    if 'username' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    data = request.get_json()
+    filename = data.get('filename', '')
+    if not filename or not filename.endswith('.zip') or '/' in filename or '\\' in filename:
+        return jsonify({'error': 'Invalid filename'}), 400
+    backup_path = os.path.join('backups', filename)
+    if not os.path.exists(backup_path):
+        return jsonify({'error': 'Backup file not found'}), 404
+    try:
+        os.remove(backup_path)
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.errorhandler(404)
+def page_not_found(e):
+    return render_template('404.html'), 404
 
 if __name__ == '__main__':
     # Create necessary directories
