@@ -8,9 +8,6 @@ from datetime import datetime
 from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify, send_file
 from werkzeug.utils import secure_filename
 import zipfile
-import platform
-if platform.system() != 'Linuxpyt':
-    raise RuntimeError("This application is only supported on Linux VPS servers.")
 
 app = Flask(__name__)
 
