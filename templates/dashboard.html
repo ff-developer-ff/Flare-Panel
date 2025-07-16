@@ -190,7 +190,11 @@
                         <p><strong>Port:</strong> {{ server.port }}</p>
                         <p><strong>Type:</strong> <span class="badge bg-info">Flare Panel Server</span></p>
                         <p><strong>App File:</strong> <code>{{ server.app_file or 'app.py' }}</code></p>
+                        {% if server.command %}
                         <p><strong>Command:</strong> <code>{{ server.command[:50] }}{% if server.command|length > 50 %}...{% endif %}</code></p>
+                        {% else %}
+                        <p><strong>Command:</strong> <code>None</code></p>
+                        {% endif %}
                         {% if server.start_time %}
                         <p><strong>Started:</strong> {{ server.start_time[:19] }}</p>
                         {% endif %}

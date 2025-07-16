@@ -130,7 +130,8 @@ class ServerManager:
         requirements_file = os.path.join(server_dir, requirements_file)
         
         if not os.path.exists(requirements_file):
-            return False, f"{requirements_file} not found"
+            self.add_console_log(name, f"No requirements.txt found at {requirements_file}, skipping dependency installation.")
+            return True, "No requirements.txt found, skipping dependency installation."
         
         try:
             # Log the installation start
@@ -467,56 +468,19 @@ def create_server():
         host = request.form.get('host', '0.0.0.0')  # Default to 0.0.0.0 if not provided
         port = int(request.form['port'])
         server_type = request.form['server_type']
-        domain = request.form.get('domain_name', '').strip()
-        enable_ssl = request.form.get('enable_ssl') == 'on'
-        enable_both = request.form.get('enable_both') == 'on'
-        gunicorn_command = None
-        gunicorn_command_https = None
-        ssl_cert = ''
-        ssl_key = ''
-        # Determine app_file
+        # Only use app_file, ignore domain/ssl/enable_both
         app_file = request.form.get('app_file', '').strip()
         if not app_file:
             app_file = 'app.py'
-        if server_type == 'gunicorn' and domain:
-            if enable_ssl:
-                ssl_cert = f'/etc/letsencrypt/live/{domain}/fullchain.pem'
-                ssl_key = f'/etc/letsencrypt/live/{domain}/privkey.pem'
-                gunicorn_command_https = f'gunicorn --bind 0.0.0.0:443 --certfile {ssl_cert} --keyfile {ssl_key} --workers 1 {app_file}:app'
-            if enable_both and enable_ssl:
-                gunicorn_command = f'gunicorn --bind 0.0.0.0:80 --workers 1 {app_file}:app'
-            elif enable_ssl:
-                gunicorn_command = gunicorn_command_https
-            else:
-                gunicorn_command = f'gunicorn --bind {host}:{port} --workers 1 {app_file}:app'
+        # Always use normal gunicorn command for gunicorn type
+        if server_type == 'gunicorn':
+            gunicorn_command = f'gunicorn --bind {host}:{port} --workers 1 {app_file}:app'
+        else:
+            gunicorn_command = None  # Not used for other types
         # Save server with extra info
         server = server_manager.create_flask_server(name, host, port, app_file, server_type)
-        # --- NGINX + SSL AUTO SETUP ---
-        if server_type == 'gunicorn' and domain:
-            try:
-                certbot_success, certbot_output = setup_nginx_and_ssl(domain, port, enable_ssl, enable_both)
-                if enable_ssl:
-                    if certbot_success:
-                        flash(f'SSL certificate installed successfully for {domain}!', 'success')
-                    else:
-                        flash(f'Certbot failed for {domain}: {certbot_output}', 'error')
-                elif certbot_output:
-                    flash(certbot_output, 'info')
-            except Exception as e:
-                flash(f'Nginx/SSL setup error: {str(e)}', 'error')
-        # --- END NGINX + SSL AUTO SETUP ---
         if server_type == 'gunicorn':
-            server['domain'] = domain
-            server['ssl_enabled'] = enable_ssl
-            server['ssl_cert'] = ssl_cert
-            server['ssl_key'] = ssl_key
-            server['enable_both'] = enable_both
-            if enable_both and enable_ssl:
-                server['command_http'] = gunicorn_command
-                server['command_https'] = gunicorn_command_https
-                server['command'] = gunicorn_command_https
-            else:
-                server['command'] = gunicorn_command
+            server['command'] = gunicorn_command
             server_manager.save_servers()
         flash(f'Server "{name}" created successfully', 'success')
         return redirect(url_for('dashboard'))
