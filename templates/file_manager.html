@@ -1,227 +1,260 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Flare Panel - File Manager</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/theme/monokai.min.css" rel="stylesheet">
+{% extends 'base.html' %}
+{% block title %}File Manager{% endblock %}
+{% block content %}
     <style>
         body {
-            background: linear-gradient(135deg, #0f0f0f 0%, #1a1a1a 50%, #0f0f0f 100%);
-            color: #ffffff;
+        background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+        color: #fff;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-        .navbar {
-            background: linear-gradient(90deg, #1a1a1a 0%, #2d2d2d 100%) !important;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
         }
         .card {
             background: rgba(30, 30, 30, 0.95);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 107, 53, 0.15);
             border-radius: 15px;
-            backdrop-filter: blur(10px);
+        box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
+        backdrop-filter: blur(8px);
         }
         .card-header {
+        background: linear-gradient(90deg, #ff6b35 0%, #f7931e 100%);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 15px 15px 0 0 !important;
+        color: #fff;
+    }
+    .breadcrumb {
             background: rgba(40, 40, 40, 0.8);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 15px 15px 0 0 !important;
-        }
-        .file-item {
-            cursor: pointer;
-            transition: all 0.3s ease;
-            background: rgba(40, 40, 40, 0.5);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            border-radius: 8px;
-            margin: 2px 0;
-        }
-        .file-item:hover {
-            background: rgba(255, 107, 53, 0.1);
-            border-color: rgba(255, 107, 53, 0.3);
-            transform: translateX(5px);
-        }
-        .folder-item {
-            color: #ffa502;
-            text-shadow: 0 0 5px rgba(255, 165, 2, 0.3);
-        }
-        .file-item {
-            color: #e0e0e0;
-        }
-        .breadcrumb-item + .breadcrumb-item::before {
-            content: ">";
-            color: #ff6b35;
-        }
-        .breadcrumb {
-            background: rgba(20, 20, 20, 0.8);
-            border-radius: 10px;
-            padding: 10px 15px;
-        }
-        .breadcrumb-item a {
-            color: #ff6b35;
-            text-decoration: none;
-        }
-        .breadcrumb-item.active {
-            color: #ffffff;
+        border-radius: 10px;
+        padding: 10px 18px;
+        margin-bottom: 18px;
+        font-size: 1.05rem;
+    }
+    .breadcrumb-item + .breadcrumb-item::before {
+        content: ">";
+        color: #ff6b35;
+            font-weight: bold;
+    }
+    .breadcrumb-item a {
+        color: #ff6b35;
+        text-decoration: none;
+        font-weight: 500;
+        transition: color 0.2s;
+    }
+    .breadcrumb-item a:hover {
+        color: #f7931e;
+        text-decoration: underline;
+    }
+    .breadcrumb-item span {
+        color: #fff;
+        font-weight: 600;
+    }
+    .list-group-item {
+        background: rgba(40, 40, 40, 0.7);
+        border: 1px solid rgba(255, 107, 53, 0.08);
+        color: #fff;
+        border-radius: 8px;
+        margin: 2px 0;
+        transition: background 0.2s, border 0.2s, box-shadow 0.2s;
+    }
+    .list-group-item:hover {
+        background: rgba(255, 107, 53, 0.08);
+        border-color: #ff6b35;
+        box-shadow: 0 2px 8px 0 rgba(255, 107, 53, 0.08);
+    }
+    .file-item {
+        color: #e0e0e0;
+        font-weight: 500;
+    }
+    .folder-item {
+        color: #ff6b35;
+        text-shadow: 0 0 6px rgba(255, 107, 53, 0.18);
+        font-weight: 600;
         }
         .btn {
             border-radius: 10px;
             font-weight: 500;
-            transition: all 0.3s ease;
-        }
-        .btn:hover {
-            transform: translateY(-2px);
+        transition: all 0.2s;
         }
         .btn-primary {
             background: linear-gradient(45deg, #ff6b35, #f7931e);
             border: none;
+        color: #fff;
         }
         .btn-success {
-            background: linear-gradient(45deg, #00ff88, #00d4aa);
+        background: linear-gradient(45deg, #00ff88, #ff6b35);
+        border: none;
+        color: #fff;
+    }
+    .btn-warning {
+        background: linear-gradient(45deg, #ffa502, #ff6b35);
             border: none;
+        color: #fff;
         }
         .btn-info {
-            background: linear-gradient(45deg, #3742fa, #5352ed);
+        background: linear-gradient(45deg, #3742fa, #ff6b35);
+            border: none;
+        color: #fff;
+    }
+    .btn-outline-warning, .btn-outline-info, .btn-outline-secondary, .btn-outline-primary, .btn-outline-danger, .btn-outline-success {
+        border-width: 2px;
+    }
+    .btn-outline-warning {
+        color: #ff6b35;
+        border-color: #ff6b35;
+    }
+    .btn-outline-warning:hover {
+        background: #ff6b35;
+        color: #fff;
+    }
+    .btn-outline-info {
+        color: #f7931e;
+        border-color: #f7931e;
+    }
+    .btn-outline-info:hover {
+        background: #f7931e;
+        color: #fff;
+    }
+    .btn-outline-primary {
+        color: #ff6b35;
+        border-color: #ff6b35;
+    }
+    .btn-outline-primary:hover {
+        background: #ff6b35;
+        color: #fff;
+    }
+    .btn-outline-danger {
+        color: #ff4757;
+        border-color: #ff4757;
+    }
+    .btn-outline-danger:hover {
+        background: #ff4757;
+        color: #fff;
+    }
+    .btn-outline-success {
+        color: #00ff88;
+        border-color: #00ff88;
+    }
+    .btn-outline-success:hover {
+        background: #00ff88;
+        color: #222;
+    }
+    .btn-outline-secondary {
+        color: #747d8c;
+        border-color: #747d8c;
+    }
+    .btn-outline-secondary:hover {
+        background: #747d8c;
+        color: #fff;
+        }
+        .alert {
+            border-radius: 10px;
             border: none;
         }
-        .navbar-brand {
-            color: #ff6b35 !important;
+        h2 {
+            color: #ff6b35;
+            font-weight: 600;
         }
-        .list-group-item {
-            background: rgba(40, 40, 40, 0.5);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            color: #ffffff;
-        }
-        .list-group-item:hover {
-            background: rgba(255, 107, 53, 0.1);
+        .text-white {
+        color: #fff !important;
         }
     </style>
-</head>
-<body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
-        <div class="container">
-            <a class="navbar-brand" href="{{ url_for('dashboard') }}">
-                <i class="fas fa-fire me-2"></i>Flare Panel
-            </a>
-            <div class="navbar-nav ms-auto">
-                <span class="navbar-text me-3">
-                    <i class="fas fa-user me-1"></i>{{ username }}
-                </span>
-                <a class="nav-link" href="{{ url_for('logout') }}">
-                    <i class="fas fa-sign-out-alt me-1"></i>Logout
-                </a>
+<div class="container-fluid mt-4" id="file-manager-container" data-current-server="{{ (server.name if server and server.name else '') }}">
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <h2><i class="fas fa-folder me-2"></i>File Manager</h2>
             </div>
+        <div class="col-md-6 text-end">
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#uploadModal">
+                <i class="fas fa-upload me-1"></i>Upload File
+            </button>
+            <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#createFolderModal">
+                <i class="fas fa-folder-plus me-1"></i>Create Folder
+            </button>
         </div>
-    </nav>
+    </div>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
 
-    <div class="container mt-4">
-        <div class="row mb-4">
-            <div class="col-md-6">
-                <h2><i class="fas fa-folder me-2"></i>File Manager</h2>
-            </div>
-            <div class="col-md-6 text-end">
-                <a href="{{ url_for('cleanup_extracted_files', current_path=current_path) }}" class="btn btn-warning me-2" 
-                   onclick="return confirm('Clean up extracted directories? This will remove all extracted archive folders.')">
-                    <i class="fas fa-broom me-1"></i>Clean Extracted
-                </a>
-                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#uploadModal">
-                    <i class="fas fa-upload me-1"></i>Upload File
-                </button>
-                <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#createFolderModal">
-                    <i class="fas fa-folder-plus me-1"></i>Create Folder
-                </button>
-            </div>
-        </div>
-
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                {% for category, message in messages %}
-                    <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show">
-                        {{ message }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                    </div>
-                {% endfor %}
-            {% endif %}
-        {% endwith %}
-
-        <!-- Breadcrumb -->
-        <nav aria-label="breadcrumb">
-            <ol class="breadcrumb">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item">
+                <span>/data</span>
+            </li>
+            {% if server and server.name %}
                 <li class="breadcrumb-item">
-                    <a href="{{ url_for('file_manager') }}">Root</a>
+                    <a href="#" onclick="openFolder('{{ server.name }}'); return false;">{{ server.name }}</a>
                 </li>
-                {% for part in current_path.split('/') if part %}
+                {% set path_parts = current_path.split('/') if current_path else [] %}
+                {% set accum = server.name %}
+                {% for part in path_parts if part %}
+                    {% set accum = accum + '/' + part %}
                     <li class="breadcrumb-item">
-                        <a href="{{ url_for('file_manager', path='/'.join(current_path.split('/')[:loop.index])) }}">{{ part }}</a>
+                        <a href="#" onclick="openFolder('{{ accum }}'); return false;">{{ part }}</a>
                     </li>
                 {% endfor %}
-            </ol>
-        </nav>
+            {% endif %}
+        </ol>
+    </nav>
 
-        <!-- File List -->
-        <div class="card">
-            <div class="card-header">
-                <h5 class="mb-0">
-                    <i class="fas fa-list me-2"></i>Files and Folders
-                </h5>
+    <!-- File List -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">
+                <i class="fas fa-list me-2"></i>Files and Folders
+            </h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="list-group list-group-flush">
+                {% if current_path != '.' %}
+                    <a href="#" onclick="goUpFolder(); return false;" class="list-group-item list-group-item-action file-item">
+                        <i class="fas fa-level-up-alt me-2"></i>.. (Go Up)
+                    </a>
+                {% endif %}
+                {% for item in files %}
+                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                            {% if item.is_dir %}
+                                <a href="#" onclick="openFolder('{{ item.path }}'); return false;" class="list-group-item list-group-item-action file-item">
+                                    <i class="fas fa-folder me-2 folder-item"></i>{{ item.name }}
+                                </a>
+                            {% else %}
+                                <i class="fas fa-file me-2 file-item"></i>{{ item.name }}
+                                <small class="text-muted ms-2">({{ item.size }})</small>
+                            {% endif %}
+                        </div>
+                        <div class="btn-group btn-group-sm">
+                            {% if not item.is_dir and item.name.endswith(('.py', '.js', '.html', '.css', '.txt', '.json', '.xml', '.md', '.sh', '.conf', '.ini', '.cfg')) %}
+                            <button class="btn btn-outline-warning" onclick="editFile('{{ item.path }}', '{{ item.name }}')" title="Edit">
+                                <i class="fas fa-code"></i>
+                            </button>
+                            {% endif %}
+                            <button class="btn btn-outline-info" onclick="renameFile('{{ item.path }}', '{{ item.name }}')" title="Rename">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn btn-outline-secondary" onclick="moveFile('{{ item.path }}', '{{ item.name }}')" title="Move">
+                                <i class="fas fa-arrows-alt"></i>
+                            </button>
+                            <button class="btn btn-outline-primary" onclick="copyFile('{{ item.path }}', '{{ item.name }}')" title="Copy">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                            {% if item.name.endswith(('.zip', '.tar.gz', '.tgz', '.rar')) %}
+                            <button class="btn btn-outline-success" onclick="unzipFile('{{ item.path }}', '{{ item.name }}')" title="Unzip/Extract">
+                                <i class="fas fa-file-archive"></i>
+                            </button>
+                            {% endif %}
+                            <button class="btn btn-outline-danger" onclick="deleteFile('{{ item.path }}', '{{ item.name }}')" title="Delete">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
             </div>
-            <div class="card-body p-0">
-                <div class="list-group list-group-flush">
-                    {% if current_path != '.' %}
-                        <a href="{{ url_for('file_manager', path='/'.join(current_path.split('/')[:-1])) }}" 
-                           class="list-group-item list-group-item-action file-item">
-                            <i class="fas fa-level-up-alt me-2"></i>.. (Go Up)
-                        </a>
-                    {% endif %}
-                    
-                    {% for item in files %}
-                        {% if item.is_dir %}
-                            <a href="{{ url_for('file_manager', path=item.path) }}" 
-                               class="list-group-item list-group-item-action file-item">
-                                <i class="fas fa-folder me-2 folder-item"></i>{{ item.name }}
-                            </a>
-                        {% else %}
-                            <div class="list-group-item d-flex justify-content-between align-items-center">
-                                <div>
-                                    <i class="fas fa-file me-2 file-item"></i>{{ item.name }}
-                                    <small class="text-muted ms-2">({{ item.size }})</small>
-                                </div>
-                                <div class="btn-group btn-group-sm">
-                                    <a href="{{ url_for('file_manager', path=item.path, action='download') }}" 
-                                       class="btn btn-outline-primary" title="Download">
-                                        <i class="fas fa-download"></i>
-                                    </a>
-                                    {% if item.name.endswith(('.py', '.js', '.html', '.css', '.txt', '.json', '.xml', '.md', '.sh', '.conf', '.ini', '.cfg')) %}
-                                    <button class="btn btn-outline-warning" 
-                                            onclick="editFile('{{ item.path }}', '{{ item.name }}')" title="Edit">
-                                        <i class="fas fa-code"></i>
-                                    </button>
-                                    {% endif %}
-                                    <button class="btn btn-outline-info" 
-                                            onclick="renameFile('{{ item.path }}', '{{ item.name }}')" title="Rename">
-                                        <i class="fas fa-edit"></i>
-                                    </button>
-                                    <button class="btn btn-outline-secondary" 
-                                            onclick="moveFile('{{ item.path }}', '{{ item.name }}')" title="Move">
-                                        <i class="fas fa-cut"></i>
-                                    </button>
-                                    {% if item.name.endswith(('.zip', '.tar.gz', '.tgz', '.rar')) %}
-                                    <a href="{{ url_for('unarchive_file', path=item.path, current_path=current_path) }}" 
-                                       class="btn btn-outline-success" title="Extract">
-                                        <i class="fas fa-file-archive"></i>
-                                    </a>
-                                    {% endif %}
-                                    <button class="btn btn-outline-danger" 
-                                            onclick="deleteFile('{{ item.path }}', '{{ item.name }}')" title="Delete">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
-                                </div>
-                            </div>
-                        {% endif %}
-                    {% endfor %}
-                </div>
+                {% endfor %}
             </div>
         </div>
     </div>
@@ -234,9 +267,9 @@
                     <h5 class="modal-title">Upload File</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <form action="{{ url_for('upload_file') }}" method="POST" enctype="multipart/form-data">
+                <form id="uploadForm" enctype="multipart/form-data">
                     <div class="modal-body">
-                        <input type="hidden" name="path" value="{{ current_path }}">
+                        <input type="hidden" name="path" id="uploadPath" value="{{ current_path }}">
                         <div class="mb-3">
                             <label for="file" class="form-label">Select File</label>
                             <input type="file" class="form-control" id="file" name="file" required>
@@ -259,9 +292,9 @@
                     <h5 class="modal-title">Create Folder</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <form action="{{ url_for('create_folder') }}" method="POST">
+                <form id="createFolderForm">
                     <div class="modal-body">
-                        <input type="hidden" name="path" value="{{ current_path }}">
+                        <input type="hidden" name="path" id="createFolderPath" value="{{ current_path }}">
                         <div class="mb-3">
                             <label for="folder_name" class="form-label">Folder Name</label>
                             <input type="text" class="form-control" id="folder_name" name="folder_name" required>
@@ -276,93 +309,358 @@
         </div>
     </div>
 
-    <!-- Move File Modal -->
-    <div class="modal fade" id="moveFileModal" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Move File</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <form action="{{ url_for('move_file') }}" method="POST">
-                    <div class="modal-body">
-                        <input type="hidden" name="current_path" value="{{ current_path }}">
-                        <input type="hidden" name="source_path" id="moveSourcePath">
-                        <div class="mb-3">
-                            <label for="moveFileName" class="form-label">File Name</label>
-                            <input type="text" class="form-control" id="moveFileName" readonly>
-                        </div>
-                        <div class="mb-3">
-                            <label for="destination_path" class="form-label">Destination Path</label>
-                            <input type="text" class="form-control" id="destination_path" name="destination_path" 
-                                   placeholder="/path/to/destination/filename" required>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-primary">Move</button>
-                    </div>
-                </form>
-            </div>
+    <!-- Text Editor Modal -->
+    <div class="modal fade" id="editorModal" tabindex="-1">
+      <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title"><i class="fas fa-code me-2"></i>Edit File: <span id="editorFileName"></span></h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <textarea id="fileContent" class="form-control" rows="18" style="font-family:monospace;"></textarea>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="button" class="btn btn-primary" onclick="saveFile()"><i class="fas fa-save me-1"></i>Save</button>
+          </div>
         </div>
+      </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Move File Modal -->
+    <div class="modal fade" id="moveModal" tabindex="-1">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title"><i class="fas fa-arrows-alt me-2"></i>Move File/Folder: <span id="moveFileName"></span></h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <label for="moveDestination" class="form-label">Destination Folder</label>
+            <input type="text" class="form-control" id="moveDestination" placeholder="Enter destination path">
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="button" class="btn btn-primary" onclick="confirmMove()"><i class="fas fa-check me-1"></i>Move</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <script>
-        function deleteFile(path, fileName) {
-            const isDir = fileName.includes('.') ? false : true;
-            const itemType = isDir ? 'folder' : 'file';
-            const message = `Are you sure you want to delete this ${itemType}?\n\nName: ${fileName}\nPath: ${path}`;
-            
-            if (confirm(message)) {
-                window.location.href = '{{ url_for("delete_file") }}?path=' + encodeURIComponent(path);
+let currentServer = document.getElementById('file-manager-container').getAttribute('data-current-server');
+
+// Utility to get a safe path for operations
+function getSafePath(path) {
+    if (!path || path === '' || path === '.' || path === undefined) {
+        return currentServer;
+    }
+    return path;
+}
+
+// Remove all root access restrictions and warnings from openFolder and Go Up logic
+function openFolder(path) {
+    // If path is empty, undefined, or '.', always use currentServer (server root)
+    if (!path || path === '' || path === '.' || path === undefined) {
+        path = currentServer;
+    }
+    let serverName = path.split('/')[0] || currentServer;
+    let subPath = path.split('/').slice(1).join('/');
+    let apiUrl = '/api/servers/' + encodeURIComponent(serverName) + '/files?path=' + encodeURIComponent(subPath);
+
+    fetch(apiUrl)
+        .then(r => r.json())
+        .then(data => {
+            if (!data.success) {
+                alert(data.error || 'Failed to load folder.');
+                return;
             }
-        }
-        
-        function renameFile(path, currentName) {
-            const newName = prompt('Enter new name:', currentName);
-            if (newName && newName !== currentName) {
-                const form = document.createElement('form');
-                form.method = 'POST';
-                form.action = '{{ url_for("rename_file") }}';
-                
-                const oldPathInput = document.createElement('input');
-                oldPathInput.type = 'hidden';
-                oldPathInput.name = 'old_path';
-                oldPathInput.value = path;
-                
-                const newNameInput = document.createElement('input');
-                newNameInput.type = 'hidden';
-                newNameInput.name = 'new_name';
-                newNameInput.value = newName;
-                
-                const currentPathInput = document.createElement('input');
-                currentPathInput.type = 'hidden';
-                currentPathInput.name = 'current_path';
-                currentPathInput.value = '{{ current_path }}';
-                
-                form.appendChild(oldPathInput);
-                form.appendChild(newNameInput);
-                form.appendChild(currentPathInput);
-                document.body.appendChild(form);
-                form.submit();
+
+            // Update file list
+            const fileList = document.querySelector('.list-group.list-group-flush');
+            let html = '';
+
+            if (data.current_path !== '.' && data.current_path !== '') {
+                let parts = data.current_path.split('/').filter(Boolean);
+                let upPath = currentServer;
+                if (parts.length > 1) {
+                    upPath += '/' + parts.slice(0, -1).join('/');
+                }
+                html += `<a href="#" onclick="goUpFolder(); return false;" class="list-group-item list-group-item-action file-item"><i class="fas fa-level-up-alt me-2"></i>.. (Go Up)</a>`;
             }
+
+            for (const item of data.files) {
+                if (item.is_dir) {
+                    html += `<div class='list-group-item d-flex justify-content-between align-items-center'><div><a href='#' onclick="openFolder('${currentServer + '/' + item.path}'); return false;" class='list-group-item list-group-item-action file-item'><i class='fas fa-folder me-2 folder-item'></i>${item.name}</a></div><div class='btn-group btn-group-sm'></div></div>`;
+                } else {
+                    html += `<div class='list-group-item d-flex justify-content-between align-items-center'><div><i class='fas fa-file me-2 file-item'></i>${item.name}<small class='text-muted ms-2'>(${item.size})</small></div><div class='btn-group btn-group-sm'></div></div>`;
+                }
+            }
+
+            fileList.innerHTML = html;
+
+            // Update breadcrumb
+            const breadcrumb = document.querySelector('.breadcrumb');
+            let bcHtml = `<li class='breadcrumb-item'><span>/data</span></li>`;
+            bcHtml += `<li class='breadcrumb-item'><a href='#' onclick="openFolder('${currentServer}'); return false;">${currentServer}</a></li>`;
+
+            let parts = data.current_path.split('/').filter(Boolean);
+            if (parts.length === 1 && (parts[0] === '.' || parts[0] === '')) parts = [];
+            let accum = currentServer;
+            for (let i = 0; i < parts.length; i++) {
+                accum += '/' + parts[i];
+                bcHtml += `<li class='breadcrumb-item'><a href='#' onclick="openFolder('${accum}'); return false;">${parts[i]}</a></li>`;
+            }
+
+            breadcrumb.innerHTML = bcHtml;
+        })
+        .catch(() => alert('Failed to load folder.'));
+}
+
+// Update Go Up button logic to reload server root if already at root
+function goUpFolder() {
+    const uploadPath = document.getElementById('uploadPath').value;
+    let parts = uploadPath.split('/').filter(Boolean);
+    let upPath = parts.slice(0, -1).join('/');
+    if (!upPath || upPath === '' || upPath === '.' || upPath === undefined) {
+        openFolder(currentServer);
+    } else {
+        openFolder(currentServer + '/' + upPath);
+    }
+}
+
+// AJAX Upload
+        document.getElementById('uploadForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+    const form = e.target;
+    const formData = new FormData(form);
+    // Use correct endpoint and include server name
+    fetch(`/api/servers/${encodeURIComponent(currentServer)}/files/upload`, {
+                method: 'POST',
+                body: formData
+            })
+    .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    bootstrap.Modal.getInstance(document.getElementById('uploadModal')).hide();
+            // Fix: if uploadPath is empty, openFolder(currentServer) instead of openFolder('')
+            const uploadPath = document.getElementById('uploadPath').value;
+            if (!uploadPath || uploadPath === '' || uploadPath === '.') {
+                openFolder(currentServer);
+            } else {
+                openFolder(uploadPath);
+            }
+                } else {
+            alert(data.error || 'Upload failed.');
         }
-        
-        function moveFile(path, fileName) {
-            // Set values in modal
-            document.getElementById('moveSourcePath').value = path;
-            document.getElementById('moveFileName').value = fileName;
-            
-            // Set default destination path
-            const currentDir = '{{ current_path }}';
-            const defaultDest = path.replace(currentDir, '').substring(1); // Remove leading slash
-            document.getElementById('destination_path').value = defaultDest;
-            
-            // Show modal
-            new bootstrap.Modal(document.getElementById('moveFileModal')).show();
+    })
+    .catch(() => alert('Upload failed.'));
+});
+
+// AJAX Create Folder
+document.getElementById('createFolderForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+    const form = e.target;
+    const formData = new FormData(form);
+    fetch(`/api/servers/${encodeURIComponent(currentServer)}/files/create_folder`, {
+                method: 'POST',
+        body: formData
+            })
+    .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+            bootstrap.Modal.getInstance(document.getElementById('createFolderModal')).hide();
+            openFolder(document.getElementById('createFolderPath').value);
+                } else {
+            alert(data.error || 'Create folder failed.');
         }
+    })
+    .catch(() => alert('Create folder failed.'));
+});
+
+// File editing functionality
+let currentEditPath = '';
+
+function editFile(path, name) {
+    currentEditPath = path;
+    document.getElementById('editorFileName').textContent = name;
+    fetch(`/api/servers/${encodeURIComponent(currentServer)}/files/read?path=${encodeURIComponent(path)}`)
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('fileContent').value = data.content;
+                new bootstrap.Modal(document.getElementById('editorModal')).show();
+            } else {
+                alert(data.error || 'Failed to read file.');
+            }
+        })
+        .catch(() => alert('Failed to read file.'));
+}
+
+function saveFile() {
+    const content = document.getElementById('fileContent').value;
+    fetch(`/api/servers/${encodeURIComponent(currentServer)}/files/save`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            path: currentEditPath,
+            content: content
+        })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            bootstrap.Modal.getInstance(document.getElementById('editorModal')).hide();
+            openFolder(currentServer);
+        } else {
+            alert(data.error || 'Failed to save file.');
+        }
+    })
+    .catch(() => alert('Failed to save file.'));
+}
+
+// Delete functionality
+function deleteFile(path, name) {
+    if (confirm(`Are you sure you want to delete "${name}"?\nThis action cannot be undone!`)) {
+        fetch(`/api/servers/${encodeURIComponent(currentServer)}/files?path=${encodeURIComponent(getSafePath(path))}&name=${encodeURIComponent(name)}`, {
+            method: 'DELETE'
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                openFolder(currentServer);
+            } else {
+                alert(data.error || 'Failed to delete file/folder.');
+            }
+        })
+        .catch(() => alert('Failed to delete file/folder.'));
+    }
+}
+
+// Rename functionality
+function renameFile(path, name) {
+    const newName = prompt(`Enter new name for "${name}":`, name);
+    if (newName && newName !== name) {
+        fetch(`/api/servers/${encodeURIComponent(currentServer)}/files/rename`, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                old_path: getSafePath(path),
+                new_name: newName
+            })
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                openFolder(currentServer);
+            } else {
+                alert(data.error || 'Failed to rename file/folder.');
+            }
+        })
+        .catch(() => alert('Failed to rename file/folder.'));
+    }
+}
+
+// Move functionality
+let currentMovePath = '';
+let currentMoveName = '';
+let currentMoveFolder = '';
+
+function moveFile(path, name) {
+    currentMovePath = path;
+    currentMoveName = name;
+    // Prefill destination with current folder
+    const uploadPath = document.getElementById('uploadPath') ? document.getElementById('uploadPath').value : '.';
+    currentMoveFolder = uploadPath;
+    document.getElementById('moveFileName').textContent = name;
+    document.getElementById('moveDestination').value = uploadPath;
+    new bootstrap.Modal(document.getElementById('moveModal')).show();
+}
+
+function confirmMove() {
+    const destination = document.getElementById('moveDestination').value.trim();
+    if (!destination) {
+        alert('Please enter a destination path.');
+        return;
+    }
+    fetch(`/api/servers/${encodeURIComponent(currentServer)}/files/move`, {
+        method: 'PATCH',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            source: getSafePath(currentMovePath),
+            destination: destination + '/' + currentMoveName
+        })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            bootstrap.Modal.getInstance(document.getElementById('moveModal')).hide();
+            openFolder(destination);
+        } else {
+            alert(data.error || 'Failed to move file/folder.');
+        }
+    })
+    .catch(() => alert('Failed to move file/folder.'));
+}
+
+// Copy functionality
+function copyFile(path, name) {
+    const newName = prompt(`Enter name for the copy of "${name}":`, `copy_of_${name}`);
+    if (newName) {
+        // Compute destination path in the same directory
+        let destPath = path.split('/').slice(0, -1).concat([newName]).join('/');
+        fetch(`/api/servers/${encodeURIComponent(currentServer)}/files/copy`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                source: getSafePath(path),
+                destination: getSafePath(destPath)
+            })
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                openFolder(currentServer);
+            } else {
+                alert(data.error || 'Failed to copy file/folder.');
+            }
+        })
+        .catch(() => alert('Failed to copy file/folder.'));
+    }
+}
+
+// Unzip functionality
+function unzipFile(path, name) {
+    if (confirm(`Extract "${name}" in the current folder?`)) {
+        fetch(`/api/servers/${encodeURIComponent(currentServer)}/files/extract`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                path: getSafePath(path)
+            })
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                openFolder(currentServer);
+            } else {
+                alert(data.error || 'Failed to extract file.');
+            }
+        })
+        .catch(() => alert('Failed to extract file.'));
+    }
+}
     </script>
-</body>
-</html>
-</html>
+</div>
+{% endblock %}

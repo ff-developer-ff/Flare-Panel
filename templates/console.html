@@ -1,448 +1,266 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Flare Panel - Server Console & File Manager</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/codemirror@5.65.13/lib/codemirror.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/codemirror@5.65.13/theme/material-darker.min.css" rel="stylesheet">
-    <style>
-        body {
-            background: linear-gradient(135deg, #0f0f0f 0%, #1a1a1a 50%, #0f0f0f 100%);
-            color: #ffffff;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-        .navbar {
-            background: linear-gradient(90deg, #1a1a1a 0%, #2d2d2d 100%) !important;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-        }
-        .tab-content {
-            background: rgba(30, 30, 30, 0.95);
-            border-radius: 15px;
-            margin-top: 20px;
-            padding: 0;
-        }
-        .nav-tabs .nav-link.active {
-            background: linear-gradient(45deg, #ff6b35, #f7931e);
-            color: #fff !important;
-            border: none;
-        }
-        .nav-tabs .nav-link {
-            color: #ff6b35;
-            border: none;
-            font-weight: 500;
-        }
-        .console-container {
-            background: rgba(20, 20, 20, 0.95);
-            border-radius: 15px;
-            padding: 20px;
-            height: 60vh;
-            overflow-y: auto;
-            font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
-            font-size: 14px;
-            line-height: 1.6;
-            box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.5);
-        }
-        .console-output {
-            white-space: pre-wrap;
-            word-wrap: break-word;
-            color: #e0e0e0;
-        }
-        .console-input {
-            background: rgba(15, 15, 15, 0.9);
-            border: 2px solid rgba(255, 107, 53, 0.3);
-            color: #ffffff;
-            font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
-            border-radius: 10px;
-            transition: all 0.3s ease;
-        }
-        .console-input:focus {
-            background: rgba(15, 15, 15, 0.95);
-            border-color: #ff6b35;
-            color: #ffffff;
-            box-shadow: 0 0 0 0.2rem rgba(255, 107, 53, 0.25);
-        }
-        .file-manager-container {
-            padding: 0;
-            background: transparent;
-        }
-        .file-list {
-            background: rgba(30, 30, 30, 0.95);
-            border-radius: 10px;
-            padding: 10px;
-            margin-bottom: 10px;
-            overflow-x: auto;
-        }
-        .file-item, .folder-item {
-            display: flex;
-            align-items: center;
-            padding: 8px 12px;
-            border-radius: 8px;
-            margin-bottom: 4px;
-            background: rgba(40, 40, 40, 0.5);
-            color: #e0e0e0;
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-        .file-item:hover, .folder-item:hover {
-            background: rgba(255, 107, 53, 0.1);
-        }
-        .folder-item {
-            color: #ffa502;
-            font-weight: 500;
-        }
-        .file-actions {
-            margin-left: auto;
-            display: flex;
-            gap: 6px;
-        }
-        .editor-modal .modal-dialog {
-            max-width: 95vw;
-        }
-        .CodeMirror {
-            height: 60vh !important;
-            font-size: 15px;
-            border-radius: 10px;
-        }
-        @media (max-width: 768px) {
-            .console-container, .CodeMirror {
-                height: 40vh !important;
-                font-size: 13px;
-            }
-            .file-list {
-                font-size: 13px;
-            }
-        }
-    </style>
-</head>
-<body>
-    <nav class="navbar navbar-expand-lg navbar-dark">
-        <div class="container">
-            <a class="navbar-brand" href="{{ url_for('dashboard') }}">
-                <i class="fas fa-fire me-2"></i>Flare Panel
-            </a>
-            <div class="navbar-nav ms-auto">
-                <span class="navbar-text me-3">
-                    <i class="fas fa-terminal me-1"></i>{{ server_name }}
-                </span>
-                <a class="nav-link" href="{{ url_for('dashboard') }}">
-                    <i class="fas fa-arrow-left me-1"></i>Back
-                </a>
-            </div>
-        </div>
-    </nav>
+{% extends 'base.html' %}
+{% block title %}Console{% endblock %}
 
-    <div class="container mt-4">
-        <ul class="nav nav-tabs" id="consoleFileTabs" role="tablist">
-            <li class="nav-item" role="presentation">
-                <button class="nav-link active" id="console-tab" data-bs-toggle="tab" data-bs-target="#consoleTab" type="button" role="tab" aria-controls="consoleTab" aria-selected="true">
-                    <i class="fas fa-terminal me-1"></i>Console
-                </button>
-            </li>
-            <li class="nav-item" role="presentation">
-                <button class="nav-link" id="filemanager-tab" data-bs-toggle="tab" data-bs-target="#fileManagerTab" type="button" role="tab" aria-controls="fileManagerTab" aria-selected="false">
-                    <i class="fas fa-folder me-1"></i>File Manager
-                </button>
-            </li>
-        </ul>
-        <div class="tab-content">
-            <!-- Console Tab -->
-            <div class="tab-pane fade show active" id="consoleTab" role="tabpanel" aria-labelledby="console-tab">
-                <div class="card border-0 bg-transparent">
-                    <div class="card-body p-0">
-                        <div class="console-container" id="consoleOutput">
-                            <div class="console-output" id="logContent">
-                                <!-- Logs will be loaded here -->
-                            </div>
-                        </div>
-                        <div class="card-footer bg-dark text-light">
-                            <small>
-                                <strong>Available Commands:</strong> python3 script.py | pip3 install package | ls | cd folder | echo "text" | python3 --version | pip3 list | sudo apt update | Flare Panel commands
-                            </small>
-                        </div>
-                    </div>
-                    <div class="card-footer">
-                        <form id="commandForm" class="d-flex">
-                            <input type="text" class="form-control console-input me-2" id="commandInput" 
-                                   placeholder="Enter command..." autocomplete="off">
-                            <button type="submit" class="btn btn-dark">
-                                <i class="fas fa-paper-plane"></i>
-                            </button>
-                        </form>
-                    </div>
-                </div>
-            </div>
-            <!-- File Manager Tab -->
-            <div class="tab-pane fade" id="fileManagerTab" role="tabpanel" aria-labelledby="filemanager-tab">
-                <div class="file-manager-container p-3">
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                        <div>
-                            <button class="btn btn-primary btn-sm" onclick="showUploadModal()">
-                                <i class="fas fa-upload me-1"></i>Upload
-                            </button>
-                            <button class="btn btn-success btn-sm" onclick="showCreateFolderModal()">
-                                <i class="fas fa-folder-plus me-1"></i>New Folder
-                            </button>
-                        </div>
-                        <div id="currentPath" class="text-muted small"></div>
-                    </div>
-                    <div class="file-list" id="fileList">
-                        <!-- File/folder list will be loaded here -->
-                    </div>
-                </div>
-            </div>
+{% block content %}
+<div class="container-fluid py-4">
+  {% if not server %}
+    <div class="alert alert-danger mt-4">Server not found. Please select a valid server.</div>
+  {% else %}
+    <!-- STATUS BAR -->
+    <div class="row justify-content-center mb-4">
+      <div class="col-12 col-lg-10">
+        <div class="status-bar d-flex flex-wrap justify-content-between align-items-center">
+          <div class="d-flex align-items-center gap-3">
+            <i class="fas fa-server fa-lg text-light"></i>
+            <span class="fw-bold text-light fs-5">Status:</span>
+            <span class="fw-bold status-text text-{{ 'success' if server.status == 'running' else 'danger' }}">
+              {{ server.status.upper() }}
+            </span>
+          </div>
+          <div class="btn-group mt-3 mt-lg-0">
+            <button class="btn btn-success" onclick="startServer()"><i class="fas fa-play me-1"></i>Start</button>
+            <button class="btn btn-danger" onclick="stopServer()"><i class="fas fa-stop me-1"></i>Stop</button>
+            <button class="btn btn-warning" onclick="restartServer()"><i class="fas fa-sync me-1"></i>Restart</button>
+          </div>
         </div>
+      </div>
     </div>
 
-    <!-- Modals for File Manager -->
-    <div class="modal fade" id="uploadModal" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Upload File</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <form id="uploadForm" enctype="multipart/form-data">
-                    <div class="modal-body">
-                        <input type="file" class="form-control" id="uploadFileInput" name="file" required>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-primary">Upload</button>
-                    </div>
-                </form>
-            </div>
+    <!-- CONSOLE -->
+    <div class="row justify-content-center">
+      <div class="col-12 col-lg-10">
+        <div class="console-card shadow">
+          <div class="console-header">
+            <i class="fas fa-terminal me-2"></i>Console
+          </div>
+          <div id="consoleOutput" class="console-body">Loading...</div>
+          <div class="console-footer">
+            <form id="commandForm" class="d-flex gap-2">
+              <input type="text" id="commandInput" class="form-control" placeholder="Enter a command..." autocomplete="off">
+              <button type="submit" id="sendBtn" class="btn btn-orange"><i class="fas fa-paper-plane"></i></button>
+            </form>
+            <div id="consoleStoppedMsg" class="text-danger mt-2" style="display:none;"></div>
+          </div>
         </div>
-    </div>
-    <div class="modal fade editor-modal" id="editorModal" tabindex="-1">
-        <div class="modal-dialog modal-xl">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title"><i class="fas fa-code me-2"></i>Edit File: <span id="editFileName"></span></h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <textarea id="codeEditor"></textarea>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-primary" onclick="saveFile()">
-                        <i class="fas fa-save me-1"></i>Save Changes
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="modal fade" id="createFolderModal" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Create Folder</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <form id="createFolderForm">
-                    <div class="modal-body">
-                        <input type="text" class="form-control" id="newFolderName" name="folder_name" placeholder="Folder Name" required>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-success">Create</button>
-                    </div>
-                </form>
-            </div>
-        </div>
+      </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.13/lib/codemirror.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.13/mode/python/python.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.13/mode/javascript/javascript.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.13/mode/xml/xml.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.13/mode/markdown/markdown.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.13/mode/htmlmixed/htmlmixed.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.13/mode/css/css.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.13/addon/edit/closebrackets.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.13/addon/edit/matchbrackets.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.13/addon/display/autorefresh.min.js"></script>
-    <script>
-        let commandHistory = [];
-        let historyIndex = -1;
-        let isRunning = false;
+    <!-- RESOURCE USAGE -->
+    <div class="row justify-content-center mt-4">
+      <div class="col-12 col-lg-10">
+        <div class="resource-card">
+          <div class="resource-item">
+            <i class="fas fa-memory text-warning fa-2x"></i>
+            <div class="label">RAM</div>
+            <div class="progress">
+              <div id="ramBar" class="progress-bar bg-warning" style="width: 0%;"></div>
+            </div>
+            <div id="ramText" class="text-muted">-</div>
+          </div>
+          <div class="resource-item">
+            <i class="fas fa-microchip text-info fa-2x"></i>
+            <div class="label">CPU</div>
+            <div class="progress">
+              <div id="cpuBar" class="progress-bar bg-info" style="width: 0%;"></div>
+            </div>
+            <div id="cpuText" class="text-muted">-</div>
+          </div>
+          <div class="resource-item">
+            <i class="fas fa-hdd text-success fa-2x"></i>
+            <div class="label">Disk</div>
+            <div class="progress">
+              <div id="diskBar" class="progress-bar bg-success" style="width: 0%;"></div>
+            </div>
+            <div id="diskText" class="text-muted">-</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  {% endif %}
+</div>
 
-        // Load initial logs
-        loadLogs();
-        checkServerStatus();
+<!-- STYLES -->
+<style>
+body {
+  background: #111;
+  color: #f1f1f1;
+}
+.status-bar {
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 12px;
+  padding: 1rem 1.5rem;
+}
+.console-card {
+  background: #1c1c1e;
+  border: 1px solid #2a2a2d;
+  border-radius: 12px;
+  overflow: hidden;
+}
+.console-header {
+  padding: 1rem 1.5rem;
+  font-size: 1.25rem;
+  background: #2b2b2e;
+  border-bottom: 1px solid #333;
+}
+.console-body {
+  padding: 1rem 1.5rem;
+  height: 300px;
+  overflow-y: auto;
+  font-family: monospace;
+  font-size: 1rem;
+  background: #18181b;
+}
+.console-footer {
+  padding: 1rem 1.5rem;
+  background: #1a1a1d;
+  border-top: 1px solid #333;
+}
+.btn-orange {
+  background-color: #ff6b35;
+  color: white;
+  border: none;
+}
+.btn-orange:hover {
+  background-color: #e55b2d;
+}
+.resource-card {
+  background: #1a1a1a;
+  border: 1px solid #2a2a2d;
+  border-radius: 12px;
+  padding: 1rem 1.5rem;
+  display: flex;
+  gap: 2rem;
+  justify-content: space-around;
+  flex-wrap: wrap;
+}
+.resource-item {
+  flex: 1;
+  text-align: center;
+}
+.resource-item .label {
+  font-weight: 600;
+  margin-top: 0.5rem;
+  color: #ccc;
+}
+.progress {
+  height: 16px;
+  background: #2c2c2f;
+  border-radius: 8px;
+  margin: 0.5rem 0;
+}
+</style>
+{% endblock %}
 
-        // Auto-refresh logs every 1 second
-        setInterval(loadLogs, 1000);
-        // Check server status every 5 seconds
-        setInterval(checkServerStatus, 5000);
+{% block scripts %}
+<script>
+const serverName = "{{ server.name }}";
 
-        function loadLogs() {
-            fetch('/api/console_logs/{{ server_name }}')
-                .then(response => response.json())
-                .then(data => {
-                    const logContent = document.getElementById('logContent');
-                    const wasAtBottom = isAtBottom();
-                    logContent.textContent = data.logs.join('\n');
-                    if (wasAtBottom) {
-                        scrollToBottom();
-                    }
-                })
-                .catch(error => console.error('Error loading logs:', error));
-        }
+function updateServerStatus() {
+  fetch(`/api/server_status/${serverName}`)
+    .then(r => r.json())
+    .then(data => {
+      const el = document.querySelector('.status-text');
+      el.textContent = data.status.toUpperCase();
+      el.className = 'fw-bold status-text text-' + (data.status === 'running' ? 'success' : 'danger');
+      const input = document.getElementById('commandInput');
+      const sendBtn = document.getElementById('sendBtn');
+      const msg = document.getElementById('consoleStoppedMsg');
+      if (data.status !== 'running') {
+        input.disabled = true;
+        sendBtn.disabled = true;
+        msg.textContent = 'Server is stopped. Start it to run commands.';
+        msg.style.display = 'block';
+      } else {
+        input.disabled = false;
+        sendBtn.disabled = false;
+        msg.style.display = 'none';
+      }
+    });
+}
 
-        function checkServerStatus() {
-            fetch('/api/server_status/{{ server_name }}')
-                .then(response => response.json())
-                .then(data => {
-                    isRunning = data.status === 'running';
-                    updateButtons();
-                })
-                .catch(error => console.error('Error checking status:', error));
-        }
+function updateConsole() {
+  fetch(`/api/console_logs/${serverName}`)
+    .then(r => r.json())
+    .then(data => {
+      const logs = data.logs || [];
+      const output = logs.join("<br>");
+      const el = document.getElementById('consoleOutput');
+      el.innerHTML = output;
+      el.scrollTop = el.scrollHeight;
+    });
+}
 
-        function updateButtons() {
-            const startBtn = document.getElementById('startBtn');
-            const stopBtn = document.getElementById('stopBtn');
-            
-            if (isRunning) {
-                startBtn.disabled = true;
-                startBtn.classList.remove('btn-success');
-                startBtn.classList.add('btn-secondary');
-                stopBtn.disabled = false;
-                stopBtn.classList.remove('btn-secondary');
-                stopBtn.classList.add('btn-warning');
-            } else {
-                startBtn.disabled = false;
-                startBtn.classList.remove('btn-secondary');
-                startBtn.classList.add('btn-success');
-                stopBtn.disabled = true;
-                stopBtn.classList.remove('btn-warning');
-                stopBtn.classList.add('btn-secondary');
-            }
-        }
+function updateResources() {
+  fetch(`/api/servers/${serverName}/resource_usage`)
+    .then(r => r.json())
+    .then(data => {
+      if (!data.success) return;
+      document.getElementById('ramBar').style.width = data.ram_percent + '%';
+      document.getElementById('ramText').textContent = data.ram_mb + ' MB';
+      document.getElementById('cpuBar').style.width = data.cpu + '%';
+      document.getElementById('cpuText').textContent = data.cpu + '%';
+      document.getElementById('diskBar').style.width = data.disk_percent + '%';
+      document.getElementById('diskText').textContent = data.disk_mb + ' MB';
+    });
+}
 
-        function startServer() {
-            if (!isRunning) {
-                fetch('/start_server/{{ server_name }}')
-                    .then(response => {
-                        if (response.ok) {
-                            // Stay on console page, don't redirect
-                            checkServerStatus();
-                            loadLogs();
-                        }
-                    })
-                    .catch(error => console.error('Error starting server:', error));
-            }
-        }
+function startServer() {
+  fetch(`/api/clear_logs/${serverName}`, { method: 'POST' })
+    .then(() => fetch(`/start_server/${serverName}`))
+    .then(r => r.json())
+    .then(data => {
+      if (data.success) {
+        updateServerStatus();
+        updateConsole();
+      }
+    });
+}
 
-        function stopServer() {
-            if (isRunning) {
-                fetch('/stop_server/{{ server_name }}')
-                    .then(response => {
-                        if (response.ok) {
-                            // Stay on console page, don't redirect
-                            checkServerStatus();
-                            loadLogs();
-                        }
-                    })
-                    .catch(error => console.error('Error stopping server:', error));
-            }
-        }
+function stopServer() {
+  fetch(`/stop_server/${serverName}`)
+    .then(r => r.json())
+    .then(data => {
+      if (data.success) {
+        updateServerStatus();
+        updateConsole();
+      }
+    });
+}
 
-        function refreshLogs() {
-            loadLogs();
-        }
+function restartServer() {
+  stopServer();
+  setTimeout(startServer, 2500);
+}
 
-        function clearConsole() {
-            if (confirm('Are you sure you want to clear all console logs?')) {
-                fetch('/api/clear_logs/{{ server_name }}', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    }
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        document.getElementById('logContent').textContent = '';
-                        console.log('Logs cleared successfully');
-                    } else {
-                        alert('Error clearing logs: ' + data.error);
-                    }
-                })
-                .catch(error => {
-                    console.error('Error clearing logs:', error);
-                    alert('Error clearing logs');
-                });
-            }
-        }
+document.getElementById('commandForm').addEventListener('submit', function(e) {
+  e.preventDefault();
+  const input = document.getElementById('commandInput');
+  const command = input.value.trim();
+  if (!command) return;
+  input.disabled = true;
+  document.getElementById('sendBtn').disabled = true;
 
-        function scrollToBottom() {
-            const consoleContainer = document.getElementById('consoleOutput');
-            consoleContainer.scrollTop = consoleContainer.scrollHeight;
-        }
+  fetch(`/api/send_command/${serverName}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ command })
+  }).then(() => {
+    input.value = '';
+    updateConsole();
+  }).finally(() => {
+    input.disabled = false;
+    document.getElementById('sendBtn').disabled = false;
+    input.focus();
+  });
+});
 
-        function isAtBottom() {
-            const consoleContainer = document.getElementById('consoleOutput');
-            return consoleContainer.scrollTop + consoleContainer.clientHeight >= consoleContainer.scrollHeight - 10;
-        }
-
-        // Handle command submission
-        document.getElementById('commandForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            const command = document.getElementById('commandInput').value.trim();
-            if (command) {
-                sendCommand(command);
-                document.getElementById('commandInput').value = '';
-            }
-        });
-
-        function sendCommand(command) {
-            // Add command to history
-            commandHistory.push(command);
-            historyIndex = commandHistory.length;
-
-            fetch('/api/send_command/{{ server_name }}', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ command: command })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    // Command logged successfully
-                    loadLogs();
-                }
-            })
-            .catch(error => console.error('Error sending command:', error));
-        }
-
-        // Handle arrow keys for command history
-        document.getElementById('commandInput').addEventListener('keydown', function(e) {
-            if (e.key === 'ArrowUp') {
-                e.preventDefault();
-                if (historyIndex > 0) {
-                    historyIndex--;
-                    this.value = commandHistory[historyIndex] || '';
-                }
-            } else if (e.key === 'ArrowDown') {
-                e.preventDefault();
-                if (historyIndex < commandHistory.length - 1) {
-                    historyIndex++;
-                    this.value = commandHistory[historyIndex] || '';
-                } else {
-                    historyIndex = commandHistory.length;
-                    this.value = '';
-                }
-            }
-        });
-    </script>
-</body>
-</html> 
+// Initial polling
+updateServerStatus();
+updateConsole();
+updateResources();
+setInterval(updateServerStatus, 5000);
+setInterval(updateConsole, 2000);
+setInterval(updateResources, 3000);
+</script>
+{% endblock %}

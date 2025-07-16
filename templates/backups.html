@@ -1,0 +1,210 @@
+{% extends 'base.html' %}
+{% block title %}Backups{% endblock %}
+{% block content %}
+<style>
+  body {
+    background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+    color: #fff;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  }
+  .backup-card {
+    background: #202020;
+    border: 1px solid #ff6b35;
+    border-radius: 10px;
+    color: #fff;
+    padding: 2rem;
+    margin-top: 2.5rem;
+    margin-bottom: 2.5rem;
+  }
+  .btn-orange {
+    background-color: #ff6b35;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    font-size: 1rem;
+    padding: 0.6rem 1.5rem;
+    font-weight: 600;
+    transition: background 0.2s ease-in-out;
+  }
+  .btn-orange:hover {
+    background-color: #e55b2d;
+  }
+  .btn-red {
+    background-color: #e53935;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    font-size: 1rem;
+    padding: 0.6rem 1.2rem;
+    font-weight: 600;
+    transition: background 0.2s ease-in-out;
+  }
+  .btn-red:hover {
+    background-color: #c62828;
+  }
+  .btn-green {
+    background-color: #00c853;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    font-size: 1rem;
+    padding: 0.6rem 1.2rem;
+    font-weight: 600;
+    transition: background 0.2s ease-in-out;
+  }
+  .btn-green:hover {
+    background-color: #009624;
+  }
+  .backup-table th, .backup-table td {
+    vertical-align: middle;
+    color: #fff;
+  }
+  .backup-table th {
+    color: #ff6b35;
+    font-weight: 700;
+    background: #181c20;
+    border-bottom: 2px solid #ff6b35;
+  }
+  .backup-table tr {
+    background: #23272b;
+    border-bottom: 1px solid #222;
+  }
+  .backup-table tr:last-child {
+    border-bottom: none;
+  }
+  .backup-table td {
+    background: #23272b;
+  }
+</style>
+<div class="container py-4">
+  <h2 class="mb-4" style="color:#ff6b35;"><i class="fas fa-database me-2"></i>Backups</h2>
+  <div class="backup-card mb-4">
+    <form id="createBackupForm" class="d-flex align-items-center gap-3">
+      <input type="text" name="backup_name" class="form-control" placeholder="Backup name (optional)" style="max-width: 250px;">
+      <button type="submit" class="btn btn-orange">
+        <i class="fas fa-plus me-1"></i>Create Backup
+      </button>
+    </form>
+  </div>
+  <div class="backup-card">
+    <table class="table backup-table align-middle mb-0" id="backupsTable">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Created At</th>
+          <th>Size</th>
+          <th class="text-end">Actions</th>
+        </tr>
+      </thead>
+      <tbody id="backupsTbody">
+        <tr><td colspan="4" class="text-center text-muted">Loading...</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div id="backupAlert" style="display:none;" class="alert mt-3"></div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+const serverName = '{{ current_server.name if current_server else servers[0].name if servers else "" }}';
+const apiBase = `/api/servers/${serverName}/backups`;
+
+function showAlert(msg, type = 'success') {
+  const alert = document.getElementById('backupAlert');
+  alert.className = `alert alert-${type} mt-3`;
+  alert.textContent = msg;
+  alert.style.display = 'block';
+  setTimeout(() => { alert.style.display = 'none'; }, 3500);
+}
+
+function fetchBackups() {
+  fetch(apiBase)
+    .then(r => r.json())
+    .then(data => {
+      const tbody = document.getElementById('backupsTbody');
+      tbody.innerHTML = '';
+      if (!data.backups || !data.backups.length) {
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">No backups found.</td></tr>';
+        return;
+      }
+      data.backups.forEach(backup => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><i class="fas fa-file-archive me-2"></i>${backup.filename}</td>
+          <td>${new Date(backup.created).toLocaleString()}</td>
+          <td>${backup.size_mb} MB</td>
+          <td class="text-end">
+            <a href="${apiBase}/${backup.filename}/download" class="btn btn-green me-2"><i class="fas fa-download"></i></a>
+            <button class="btn btn-red me-2" onclick="deleteBackup('${backup.filename}')"><i class="fas fa-trash"></i></button>
+            <button class="btn btn-orange" onclick="restoreBackup('${backup.filename}')"><i class="fas fa-upload"></i></button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    });
+}
+
+document.getElementById('createBackupForm').addEventListener('submit', function(e) {
+  e.preventDefault();
+  const name = e.target.backup_name.value.trim();
+  const btn = e.target.querySelector('button[type="submit"]');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Creating...';
+  fetch(apiBase, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ backup_name: name })
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.success) {
+      showAlert(data.message, 'success');
+      fetchBackups();
+    } else {
+      showAlert(data.error || 'Failed to create backup', 'danger');
+    }
+    e.target.backup_name.value = '';
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-plus me-1"></i>Create Backup';
+  })
+  .catch(() => {
+    showAlert('Failed to create backup.', 'danger');
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-plus me-1"></i>Create Backup';
+  });
+});
+
+function deleteBackup(filename) {
+  if (!confirm('Delete this backup?')) return;
+  fetch(`${apiBase}/${filename}`, { method: 'DELETE' })
+    .then(r => r.json())
+    .then(data => {
+      if (data.success) {
+        showAlert('Backup deleted.', 'success');
+        fetchBackups();
+      } else {
+        showAlert(data.error || 'Failed to delete backup', 'danger');
+      }
+    });
+}
+
+function restoreBackup(filename) {
+  if (!confirm('Restore this backup?')) return;
+  fetch(`${apiBase}/restore`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ backup_file: filename })
+  })
+    .then(r => r.json())
+    .then(data => {
+      if (data.success) {
+        showAlert(data.message, 'success');
+      } else {
+        showAlert(data.error || 'Failed to restore backup', 'danger');
+      }
+    });
+}
+
+document.addEventListener('DOMContentLoaded', fetchBackups);
+</script>
+{% endblock %} 

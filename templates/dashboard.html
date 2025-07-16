@@ -175,8 +175,8 @@
 
         <div class="row">
             {% for name, server in servers.items() %}
-            <div class="col-md-6 col-lg-4 mb-4">
-                <div class="card server-card h-100">
+            <div class="col-md-4 mb-4">
+                <div class="card server-card" data-server-name="{{ name }}">
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <h5 class="mb-0">
                             <i class="fas fa-server me-2"></i>{{ name }}
@@ -200,7 +200,7 @@
                     </div>
                     <div class="card-footer">
                         <div class="btn-group w-100" role="group">
-                            <a href="{{ url_for('manage_server', name=name) }}" class="btn btn-primary w-100">
+                            <a href="{{ url_for('server_console', name=name) }}" class="btn btn-primary w-100">
                                 <i class="fas fa-cogs me-1"></i>Manage
                             </a>
                         </div>
@@ -320,23 +320,24 @@
     <script>
         // Auto-refresh server status
         setInterval(function() {
-            {% for name in servers %}
-            fetch('/api/server_status/{{ name }}')
-                .then(response => response.json())
-                .then(data => {
-                    const statusElement = document.querySelector('[data-server="{{ name }}"] .badge');
-                    if (statusElement) {
-                        if (data.status === 'running') {
-                            statusElement.className = 'badge bg-success';
-                            statusElement.textContent = 'RUNNING';
-                        } else {
-                            statusElement.className = 'badge bg-danger';
-                            statusElement.textContent = 'STOPPED';
+            document.querySelectorAll('.server-card').forEach(card => {
+                const name = card.getAttribute('data-server-name');
+                fetch(`/api/server_status/${name}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        const statusElement = card.querySelector('.badge');
+                        if (statusElement) {
+                            if (data.status === 'running') {
+                                statusElement.className = 'badge bg-success';
+                                statusElement.textContent = 'RUNNING';
+                            } else {
+                                statusElement.className = 'badge bg-danger';
+                                statusElement.textContent = 'STOPPED';
+                            }
                         }
-                    }
-                })
-                .catch(error => console.error('Error:', error));
-            {% endfor %}
+                    })
+                    .catch(error => console.error('Error:', error));
+            });
         }, 5000);
 
         // System Monitor Functions

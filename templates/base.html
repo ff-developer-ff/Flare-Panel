@@ -10,27 +10,160 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <!-- Google Fonts: Inter -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-    <!-- Flare Panel Modern CSS -->
-    <link href="{{ url_for('static', filename='flarepanel.css') }}" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #181c20;
+            color: #fff;
+        }
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100vh;
+            width: 220px;
+            background: #23272b;
+            border-right: 1px solid #222;
+            display: flex;
+            flex-direction: column;
+            z-index: 1040;
+        }
+        .sidebar .nav-link {
+            color: #bfc9d1;
+            font-weight: 500;
+            padding: 16px 24px;
+            border-radius: 0;
+            transition: background 0.2s, color 0.2s;
+        }
+        .sidebar .nav-link.active, .sidebar .nav-link:hover {
+            background: #181c20;
+            color: #ff6b35;
+        }
+        .sidebar .sidebar-header {
+            font-size: 1.3rem;
+            font-weight: bold;
+            color: #ff6b35;
+            padding: 24px 24px 12px 24px;
+            border-bottom: 1px solid #222;
+        }
+        .sidebar .sidebar-footer {
+            margin-top: auto;
+            padding: 16px 24px;
+            border-top: 1px solid #222;
+            color: #bfc9d1;
+            font-size: 0.95rem;
+        }
+        .main-content {
+            margin-left: 220px;
+            padding: 32px 24px 24px 24px;
+            min-height: 100vh;
+            background: #181c20;
+        }
+        .navbar {
+            margin-left: 220px;
+            background: #23272b !important;
+            border-bottom: 1px solid #222;
+        }
+        .sidebar-server-list li.active, .sidebar-server-list li.active a {
+            background: linear-gradient(90deg, #ff6b35 0%, #f7931e 100%);
+            color: #fff !important;
+            font-weight: bold;
+            border-radius: 8px;
+        }
+        .sidebar-server-list li.active a {
+            color: #fff !important;
+        }
+        .sidebar-server-list li a {
+            color: #bfc9d1;
+            padding: 10px 24px;
+            border-radius: 8px;
+            display: block;
+            transition: background 0.2s, color 0.2s;
+        }
+        .sidebar-server-list li a:hover {
+            background: #181c20;
+            color: #ff6b35;
+        }
+        @media (max-width: 991.98px) {
+            .sidebar {
+                width: 100vw;
+                height: auto;
+                position: static;
+                flex-direction: row;
+                border-right: none;
+                border-bottom: 1px solid #222;
+            }
+            .main-content, .navbar {
+                margin-left: 0;
+            }
+        }
+    </style>
     {% block head %}{% endblock %}
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <i class="fas fa-fire me-2"></i>Flare Panel
+        </div>
+       
+
+        <nav class="nav flex-column mt-3">
+            {% set console_server = current_server %}
+            {% if not console_server and servers and servers|length > 0 %}
+                {% set console_server = servers[0].name %}
+            {% endif %}
+            {% if console_server %}
+                <a class="nav-link{% if request.endpoint == 'server_console' %} active{% endif %}" href="{{ url_for('server_console', name=console_server) }}">
+                    <i class="fas fa-terminal me-2"></i>Console
+                </a>
+            {% else %}
+                <a class="nav-link disabled" tabindex="-1" aria-disabled="true" title="No servers available">
+                    <i class="fas fa-terminal me-2"></i>Console
+                </a>
+            {% endif %}
+            <a class="nav-link{% if request.endpoint == 'file_manager' %} active{% endif %}" href="{{ url_for('file_manager', server=current_server) }}">
+                <i class="fas fa-folder-open me-2"></i>File Manager
+            </a>
+            <a class="nav-link{% if request.endpoint == 'backups' %} active{% endif %}" href="{{ url_for('backups') }}">
+                <i class="fas fa-database me-2"></i>Backups
+            </a>
+            {% set settings_server = current_server %}
+            {% if not settings_server and servers and servers|length > 0 %}
+                {% set settings_server = servers[0].name %}
+            {% endif %}
+            {% if settings_server %}
+                <a class="nav-link{% if request.endpoint == 'save_settings_form' %} active{% endif %}" href="{{ url_for('save_settings_form', name=settings_server) }}">
+                    <i class="fas fa-cog me-2"></i>Settings
+                </a>
+            {% else %}
+                <a class="nav-link disabled" tabindex="-1" aria-disabled="true" title="No servers available">
+                    <i class="fas fa-cog me-2"></i>Settings
+                </a>
+            {% endif %}
+        </nav>
+        {# Remove the server list from the sidebar #}
+        <div class="sidebar-footer">
+            {% if username %}
+                <i class="fas fa-user me-1"></i>{{ username }} |
+                <a href="{{ url_for('logout') }}" class="text-danger text-decoration-none ms-1"><i class="fas fa-sign-out-alt"></i> Logout</a>
+            {% endif %}
+        </div>
+        <div class="text-center mb-3 mt-2">
+            <a href="{{ url_for('dashboard') }}" class="btn btn-outline-light w-75" style="border-radius:8px;">
+                <i class="fas fa-arrow-left me-1"></i>Back to Dashboard
+            </a>
+        </div>
+    </div>
+    <nav class="navbar navbar-expand-lg navbar-dark">
         <div class="container-fluid">
-            <a class="navbar-brand" href="{{ url_for('dashboard') }}"><i class="fas fa-fire"></i> Flare Panel</a>
-            <div class="d-flex">
-                {% if username %}
-                <span class="navbar-text me-3">{{ username }}</span>
-                <a href="{{ url_for('logout') }}" class="btn btn-outline-light btn-sm">Logout</a>
-                {% endif %}
-            </div>
+            <span class="navbar-brand"><!-- Branding only, sidebar handles nav --></span>
         </div>
     </nav>
-    <main>
+    <main class="main-content">
         {% block content %}{% endblock %}
     </main>
     <!-- Bootstrap 5 JS Bundle -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     {% block scripts %}{% endblock %}
 </body>
-</html> 
+</html>
